@@ -155,6 +155,9 @@ const CHROME_C = 0xe6eaed;
 const VEND = [
   { n: '새우깡', p: 1500, c: '#e7873a' }, { n: '포카칩', p: 1700, c: '#f0b323' }, { n: '오징어땅콩', p: 1500, c: '#d8452b' },
   { n: '초코파이', p: 2000, c: '#c8102e' }, { n: '빼빼로', p: 1800, c: '#d7263d' }, { n: '홈런볼', p: 1700, c: '#2b7bc4' }];
+VEND.forEach((v, i) => { v.cost = [3, 3, 3, 4, 4, 3][i]; });   // 코인으로 산다
+const getCoins = () => store.get('coins', 3);
+function addCoins(n) { store.set('coins', Math.max(0, getCoins() + n)); try { updateHud(); drawKiosk(); drawVendDisp(); } catch { /* 처음 그릴 때는 아직 준비 전 */ } }
 const vend = new THREE.Group();
 rbox(1.0, 1.9, 0.82, 0x2e3338, 0, 1.0, 0, vend, 0.03, { roughness: 0.45, metalness: 0.15 });                 // 본체 (짙은 그래파이트)
 rbox(1.04, 0.06, 0.86, 0x3b4147, 0, 1.97, 0, vend, 0.02);
@@ -174,16 +177,21 @@ const vendGoods = new THREE.Mesh(new THREE.PlaneGeometry(0.62, 1.42), new THREE.
       g.fillStyle = v.c; g.fillRect(x, y0 + 10, 62, 86); g.fillStyle = 'rgba(255,255,255,0.22)'; g.fillRect(x, y0 + 10, 62, 20);
       g.fillStyle = '#ffffff'; g.font = 'bold 14px "Apple SD Gothic Neo","Noto Sans KR",sans-serif'; g.textAlign = 'center'; g.fillText(v.n, x + 31, y0 + 58);
     }
-    g.fillStyle = '#2b2f33'; g.font = 'bold 15px sans-serif'; g.textAlign = 'center'; g.fillText(`${String.fromCharCode(65 + r)}  ${v.p.toLocaleString()}원`, w / 2, y0 + 114);
+    g.fillStyle = '#2b2f33'; g.font = 'bold 15px sans-serif'; g.textAlign = 'center'; g.fillText(`${String.fromCharCode(65 + r)}  ${v.cost} 코인`, w / 2, y0 + 114);
   }
 }) }));
 vendGoods.position.set(-0.13, 1.0, 0.417); vend.add(vendGoods);
 rbox(0.68, 1.48, 0.012, 0x0d1114, -0.13, 1.0, 0.41, vend, 0.004);                                              // 유리창 테두리
 rbox(0.64, 1.44, 0.012, 0xbcd6e6, -0.13, 1.0, 0.432, vend, 0.004, { transparent: true, opacity: 0.16, roughness: 0.05, metalness: 0.2 });   // 유리
-const vendDisp = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.07), new THREE.MeshBasicMaterial({ map: canvasTex(100, 36, (g, w, h) => {
-  g.fillStyle = '#0c1410'; g.fillRect(0, 0, w, h); g.fillStyle = '#6dff9a'; g.font = 'bold 26px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('0 원', w / 2, h / 2);
-}) }));
+const vdCv = document.createElement('canvas'); vdCv.width = 100; vdCv.height = 36;
+const vdTex = new THREE.CanvasTexture(vdCv); vdTex.colorSpace = THREE.SRGBColorSpace;
+function drawVendDisp() {
+  const g = vdCv.getContext('2d'); g.fillStyle = '#0c1410'; g.fillRect(0, 0, 100, 36);
+  g.fillStyle = '#6dff9a'; g.font = 'bold 22px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(`${getCoins()} COIN`, 50, 19); vdTex.needsUpdate = true;
+}
+const vendDisp = new THREE.Mesh(new THREE.PlaneGeometry(0.2, 0.07), new THREE.MeshBasicMaterial({ map: vdTex }));
 vendDisp.position.set(0.38, 1.55, 0.418); vend.add(vendDisp);
+drawVendDisp();
 for (let r = 0; r < 4; r++) for (let c = 0; c < 3; c++) rbox(0.045, 0.03, 0.012, 0xcfd3d6, 0.31 + c * 0.07, 1.4 - r * 0.07, 0.418, vend, 0.005);    // 키패드
 rbox(0.2, 0.07, 0.012, 0x15191c, 0.38, 1.05, 0.418, vend, 0.005);                                              // 카드 단말기
 rbox(0.1, 0.02, 0.014, 0x6dff9a, 0.38, 1.05, 0.425, vend, 0.004, { emissive: 0x3ccf6a, emissiveIntensity: 0.8 });
@@ -192,6 +200,34 @@ rbox(0.8, 0.2, 0.02, 0x16191c, 0, 0.2, 0.418, vend, 0.01);                      
 rbox(0.72, 0.15, 0.012, 0x07090a, 0, 0.2, 0.43, vend, 0.01);
 vend.position.set(7.0, 0.05, -3.44);
 makeInteractive(vend, 'vending', '과자 자판기 · 눌러서 사 보기');
+
+/* ---------- 벽걸이 게임 키오스크 (자판기 옆 벽에 붙어 있다) ---------- */
+const kioskCv = document.createElement('canvas'); kioskCv.width = 512; kioskCv.height = 310;
+const kioskTex = new THREE.CanvasTexture(kioskCv); kioskTex.colorSpace = THREE.SRGBColorSpace; kioskTex.anisotropy = 8;
+function drawKiosk() {
+  const g = kioskCv.getContext('2d'), W = 512, H = 310;
+  const bg = g.createLinearGradient(0, 0, 0, H); bg.addColorStop(0, '#1b2a3a'); bg.addColorStop(1, '#0f1822'); g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = '#ffffff'; g.font = 'bold 30px "Apple SD Gothic Neo","Noto Sans KR",sans-serif'; g.fillText('탕비실 게임존', 26, 38);
+  g.fillStyle = '#8fa3b5'; g.font = '16px "Apple SD Gothic Neo","Noto Sans KR",sans-serif'; g.fillText('게임을 하고 코인을 받아 자판기에서 과자를 뽑아요', 26, 68);
+  [['라면 끓이기', '타이밍 3번 맞추기', '#e8603c', 26], ['타자 연습', '40초 안에 많이 치기', '#3c9be8', 266]].forEach(([t, sub, col, x]) => {
+    g.fillStyle = col; g.beginPath(); g.roundRect(x, 96, 220, 130, 14); g.fill();
+    g.fillStyle = 'rgba(255,255,255,0.16)'; g.fillRect(x, 96, 220, 34);
+    g.fillStyle = '#ffffff'; g.font = 'bold 28px "Apple SD Gothic Neo","Noto Sans KR",sans-serif'; g.textAlign = 'center'; g.fillText(t, x + 110, 170); g.font = '15px "Apple SD Gothic Neo","Noto Sans KR",sans-serif'; g.fillText(sub, x + 110, 204);
+  });
+  g.textAlign = 'left'; g.fillStyle = '#f2c14e'; g.beginPath(); g.arc(46, 268, 16, 0, 7); g.fill(); g.fillStyle = '#b8860b'; g.font = 'bold 18px sans-serif'; g.textAlign = 'center'; g.fillText('C', 46, 269);
+  g.fillStyle = '#ffffff'; g.textAlign = 'left'; g.font = 'bold 26px "Apple SD Gothic Neo","Noto Sans KR",sans-serif'; g.fillText(`보유 코인  ${getCoins()}개`, 74, 268);
+  kioskTex.needsUpdate = true;
+}
+const kiosk = new THREE.Group();
+rbox(1.06, 0.68, 0.07, 0x16191c, 0, 0, 0, kiosk, 0.02, { roughness: 0.35 });
+const kScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.98, 0.592), new THREE.MeshBasicMaterial({ map: kioskTex }));
+kScreen.position.set(0, 0, 0.0365); kiosk.add(kScreen);
+rbox(0.36, 0.07, 0.1, 0x16191c, 0.3, -0.42, 0.015, kiosk, 0.01);                   // 코인 받는 곳
+rbox(0.3, 0.035, 0.08, 0x06080a, 0.3, -0.42, 0.045, kiosk, 0.006);
+rbox(0.08, 0.012, 0.02, 0xf2c14e, -0.38, -0.39, 0.04, kiosk, 0.004, { emissive: 0xb8860b, emissiveIntensity: 0.6 });
+kiosk.position.set(8.27, 1.5, Z0 + 0.145); kiosk.scale.setScalar(1.35);   // 벽에 넓게 붙인다
+makeInteractive(kiosk, 'kiosk', '게임 키오스크 · 게임하고 코인 받기');
+drawKiosk();
 
 /* ---------- 라운지 한쪽 (소파 + 작은 테이블 + 화분 + 액자) ---------- */
 const sofa = new THREE.Group();
@@ -731,14 +767,16 @@ const windowGroup = new THREE.Group();
 const wxCanvas = document.createElement('canvas'); wxCanvas.width = 380; wxCanvas.height = 340;
 const wxCtx = wxCanvas.getContext('2d');
 const wxTex = new THREE.CanvasTexture(wxCanvas); wxTex.colorSpace = THREE.SRGBColorSpace;
-const sky = new THREE.Mesh(new THREE.PlaneGeometry(1.9, 1.7), new THREE.MeshBasicMaterial({ map: wxTex }));
+const sky = new THREE.Mesh(new THREE.PlaneGeometry(3.8, 3.4), new THREE.MeshBasicMaterial({ map: wxTex }));
 sky.rotation.y = Math.PI / 2;
-sky.position.set(X0 + 0.16, 2.4, 2.4);
+sky.position.set(X0 + 0.16, 2.4, 3.2);
 windowGroup.add(sky);
-rbox(0.12, 0.07, 2.1, 0xffffff, X0 + 0.14, 1.5, 2.4, windowGroup, 0.02);       // 창틀
-rbox(0.12, 0.07, 2.1, 0xffffff, X0 + 0.14, 3.3, 2.4, windowGroup, 0.02);
-rbox(0.12, 1.86, 0.07, 0xffffff, X0 + 0.14, 2.4, 1.4, windowGroup, 0.02);
-rbox(0.12, 1.86, 0.07, 0xffffff, X0 + 0.14, 2.4, 3.4, windowGroup, 0.02);
+rbox(0.12, 0.08, 4.0, 0xffffff, X0 + 0.14, 0.7, 3.2, windowGroup, 0.02);       // 창틀 (예전의 두 배 크기)
+rbox(0.12, 0.08, 4.0, 0xffffff, X0 + 0.14, 4.1, 3.2, windowGroup, 0.02);
+rbox(0.12, 3.48, 0.08, 0xffffff, X0 + 0.14, 2.4, 1.3, windowGroup, 0.02);
+rbox(0.12, 3.48, 0.08, 0xffffff, X0 + 0.14, 2.4, 5.1, windowGroup, 0.02);
+rbox(0.1, 3.4, 0.04, 0xffffff, X0 + 0.15, 2.4, 3.2, windowGroup, 0.01);          // 가운데 문설주
+rbox(0.1, 0.04, 3.8, 0xffffff, X0 + 0.15, 2.4, 3.2, windowGroup, 0.01);
 makeInteractive(windowGroup, 'window', '창문 · 날씨와 테마');
 
 let wx = store.get('weather', 'clear');        // clear | cloudy | rain | snow
@@ -1290,8 +1328,32 @@ makeInteractive(lunch, 'lunch', '점심 테이블 · 오늘 뭐 먹지');
 
 /* ---------- 장식 ---------- */
 // 화분
-cyl(0.26, 0.2, 0.42, 0xe3dfd6, 4.4, 0.21, 3.1);
-[[0, 0.75, 0, 0.3], [0.15, 0.95, 0.05, 0.22], [-0.15, 0.9, -0.05, 0.22], [0.02, 1.15, 0.0, 0.2]].forEach(([dx, y, dz, r]) => sph(r, 0x4f9a56, 4.4 + dx, y, 3.1 + dz));
+// 크리스마스 트리 (예전 큰 화분 자리)
+const xtree = new THREE.Group();
+cyl(0.06, 0.07, 0.3, 0x6b4a35, 0, 0.15, 0, xtree);
+[[0.62, 0.85, 0.7], [0.5, 0.75, 1.17], [0.38, 0.65, 1.58], [0.25, 0.55, 1.93]].forEach(([r, h, y], li) => {
+  const cone = new THREE.Mesh(new THREE.ConeGeometry(r, h, 28), mat(li % 2 ? 0x2d6a3f : 0x25583a, { roughness: 0.85 }));
+  put(cone, 0, y, 0, xtree);
+  for (let k = 0; k < 7 + li; k++) {                                               // 장식 공
+    const ang = k * 2.4 + li, hh = (0.15 + ((k * 0.37 + li * 0.2) % 0.7)) * h, rr = r * (1 - hh / h) * 0.96;
+    const col = [0xd94e4e, 0xf2c14e, 0x4a8fe0, 0xe9e9e9, 0xc0392b][(k + li) % 5];
+    sph(0.045, col, Math.cos(ang) * rr, y - h / 2 + hh, Math.sin(ang) * rr, xtree, [1, 1, 1], { metalness: 0.7, roughness: 0.2 });
+  }
+  for (let k = 0; k < 9; k++) {                                                    // 전구 (은은하게 빛난다)
+    const ang = k * 0.7 + li * 1.1, hh = (0.1 + (k / 9) * 0.8) * h, rr = r * (1 - hh / h) * 1.0;
+    const c = [0xfff3b0, 0xff8a8a, 0x9fd5ec][k % 3];
+    sph(0.022, c, Math.cos(ang) * rr, y - h / 2 + hh, Math.sin(ang) * rr, xtree, [1, 1, 1], { emissive: c, emissiveIntensity: 1.2 });
+  }
+});
+const star = new THREE.Mesh(new THREE.OctahedronGeometry(0.1, 0), mat(0xf2c14e, { emissive: 0xf2b500, emissiveIntensity: 1.1, metalness: 0.4 }));
+put(star, 0, 2.28, 0, xtree); star.scale.set(1, 1, 0.45);
+cyl(0.36, 0.4, 0.1, 0xb23a3a, 0, 0.05, 0, xtree);                                  // 트리 스커트
+[[0.38, 0.12, 0.3, 0xd94e4e, 0xf2c14e, 0.3], [-0.4, 0.12, 0.1, 0x2d6a8f, 0xe9e9e9, -0.2], [0.25, 0.1, -0.42, 0xf2c14e, 0xd94e4e, 0.6]].forEach(([x, hgt, z, c, rib, rot]) => {   // 선물 상자
+  const g = new THREE.Group(); g.position.set(x, hgt / 2 + 0.1, z); g.rotation.y = rot; xtree.add(g);
+  rbox(0.2, hgt, 0.2, c, 0, 0, 0, g, 0.01); rbox(0.205, hgt + 0.002, 0.04, rib, 0, 0, 0, g, 0.004); rbox(0.04, hgt + 0.002, 0.205, rib, 0, 0, 0, g, 0.004);
+});
+xtree.position.set(4.4, 0, 3.1);
+scene.add(xtree);
 // 쓰레기통 3종 (일반 / 재활용 / 음식물): 눌러서 분리배출 게임
 const bins = new THREE.Group();
 const BZ = -3.72;
@@ -1734,23 +1796,126 @@ APPS.board.noPanel = true;
 /* ---------- 과자 자판기 ---------- */
 APPS.vending = () => {
   beginFocus(new THREE.Vector3(7.0, 1.55, -0.85), new THREE.Vector3(7.0, 1.1, -3.4));
-  const spent = () => store.get('vendSpent', 0);
   const bar = () => showBar({
-    title: '과자 자판기', info: `누르면 나옵니다 (모의 결제) · 지금까지 ${spent().toLocaleString()}원`,
-    buttons: VEND.map((v, i) => ['v' + i, `${String.fromCharCode(65 + i)} ${v.n} ${v.p.toLocaleString()}원`, i === 0]),
+    title: '과자 자판기', info: `보유 코인 ${getCoins()}개 · 코인은 옆 키오스크에서 게임으로 벌어요`,
+    buttons: VEND.map((v, i) => ['v' + i, `${String.fromCharCode(65 + i)} ${v.n} ${v.cost}코인`, i === 0]),
     onButton(act) {
       const i = +act.slice(1), v = VEND[i]; if (!v) return;
-      store.set('vendSpent', spent() + v.p);
+      if (getCoins() < v.cost) { toast(`코인이 모자랍니다 (${v.cost}코인 필요). 옆 키오스크에서 게임을 해 보세요`); return; }
+      addCoins(-v.cost);
       const pk = rbox(0.12, 0.17, 0.04, new THREE.Color(v.c).getHex(), 7.0, 1.35 - i * 0.05, -3.0, scene, 0.01);   // 떨어지는 과자
       const t0 = performance.now(), y0 = pk.position.y;
       (function fall() { const k = Math.min(1, (performance.now() - t0) / 550); pk.position.y = y0 + (0.26 - y0) * k * k; if (k < 1) requestAnimationFrame(fall); else setTimeout(() => { scene.remove(pk); disposeObj(pk); }, 1400); })();
-      toast(`${v.n}이(가) 나왔습니다 (-${v.p.toLocaleString()}원, 모의)`); bar();
+      toast(`${v.n}이(가) 나왔습니다 (-${v.cost}코인)`); bar();
     }
   });
   bar(); restoreBar = bar;
   cleanup = () => { hideBar(); endFocus(); restoreBar = null; };
 };
 APPS.vending.noPanel = true;
+
+/* ---------- 게임 키오스크 (코인 벌기): 라면 끓이기 / 타자 연습 ---------- */
+APPS.kiosk = () => {
+  beginFocus(new THREE.Vector3(8.27, 1.5, -1.3), new THREE.Vector3(8.27, 1.45, -3.86));
+  overlay.classList.add('side');
+  let stop = null;
+  const menu = () => {
+    if (stop) { stop(); stop = null; }
+    panel.innerHTML = `
+      <button class="close" id="x">닫기</button>
+      <h2>게임 키오스크</h2>
+      <p class="sub">게임을 하면 코인이 나옵니다. 코인은 옆 과자 자판기에서 쓸 수 있어요. 보유 코인 <b>${getCoins()}</b>개</p>
+      <div class="presets">
+        <button data-g="ramen">라면 끓이기<small>타이밍 3번 · 최대 6코인</small></button>
+        <button data-g="typing">타자 연습<small>40초 · 최대 8코인</small></button>
+      </div>`;
+  };
+  panel.onclick = e => {
+    const b = e.target.closest('button'); if (!b) return;
+    if (b.id === 'x') { closeApp(); return; }
+    if (b.id === 'back') { menu(); return; }
+    if (b.dataset.g === 'ramen') stop = ramenGame();
+    else if (b.dataset.g === 'typing') stop = typingGame();
+  };
+  const result = (title, line, coins) => {
+    if (coins) addCoins(coins);
+    panel.innerHTML = `
+      <button class="close" id="x">닫기</button>
+      <h2>${title}</h2>
+      <div class="result">코인 +${coins}</div>
+      <p class="sub">${line} · 보유 코인 ${getCoins()}개</p>
+      <div class="row"><button class="primary" id="again">한 번 더</button><button id="back">게임 고르기</button></div>`;
+  };
+  // 라면 끓이기: 움직이는 표시를 초록 구간에서 멈추기 (물 붓기 -> 면 넣기 -> 불 끄기)
+  function ramenGame() {
+    const STAGES = [['물 붓기', '선(초록 구간)까지 물을 부으세요', 1.6, 0.22], ['면과 스프 넣기', '물이 끓어오를 때 넣으세요', 2.0, 0.17], ['불 끄기', '면이 꼬들할 때 불을 끄세요', 2.5, 0.13]];
+    let st = 0, pts = 0, raf = 0, last = '', t0 = performance.now(), center = 0.5, done = false;
+    const pos = () => 0.5 + 0.5 * Math.sin((performance.now() - t0) / 1000 * STAGES[st][2] * 2.2);
+    const view = () => {
+      const [name, hint, , w] = STAGES[st];
+      center = 0.25 + Math.random() * 0.5;
+      panel.innerHTML = `
+        <button class="close" id="x">닫기</button>
+        <h2>라면 끓이기</h2>
+        <div class="steps">${STAGES.map((s2, i) => `<span class="${i === st ? 'on' : i < st ? 'done' : ''}">${s2[0]}</span>`).join('')}</div>
+        <p class="sub">${hint}${last ? ` · 직전: ${last}` : ''}</p>
+        <div style="position:relative;height:34px;border-radius:17px;background:#d9d2c0;margin:14px 0;overflow:hidden">
+          <div style="position:absolute;left:${(center - w) * 100}%;width:${w * 200}%;top:0;bottom:0;background:#8ccf9c"></div>
+          <div style="position:absolute;left:${(center - w / 2) * 100}%;width:${w * 100}%;top:0;bottom:0;background:#4faa6c"></div>
+          <i id="mk" style="position:absolute;top:2px;bottom:2px;width:8px;border-radius:4px;background:#e8603c;left:0"></i>
+        </div>
+        <div class="row"><button class="primary" id="hit">멈추기 (스페이스)</button></div>`;
+    };
+    const loop = () => { const m = $('#mk'); if (m) m.style.left = `calc(${pos() * 100}% - 4px)`; raf = requestAnimationFrame(loop); };
+    const hit = () => {
+      if (done) return;
+      const d = Math.abs(pos() - center), w = STAGES[st][3];
+      const got = d <= w / 2 ? 2 : d <= w ? 1 : 0;
+      pts += got; last = ['빗나감', '아쉬움', '정확!'][got];
+      st++;
+      if (st >= STAGES.length) {
+        done = true; cancelAnimationFrame(raf);
+        const msg = pts >= 6 ? '완벽한 라면입니다' : pts >= 4 ? '맛있는 라면입니다' : pts >= 2 ? '먹을 만한 라면입니다' : '불어 터진 라면입니다';
+        result('라면 끓이기', msg, pts);
+      } else { t0 = performance.now(); view(); }
+    };
+    const key = e => { if (e.code === 'Space') { e.preventDefault(); hit(); } };
+    addEventListener('keydown', key);
+    const click = e => { if (e.target.closest('#hit')) hit(); if (e.target.closest('#again')) { stop && stop(); stop = ramenGame(); } };
+    panel.addEventListener('click', click);
+    view(); loop();
+    return () => { cancelAnimationFrame(raf); removeEventListener('keydown', key); panel.removeEventListener('click', click); done = true; };
+  }
+  // 타자 연습: 40초 동안 제시된 단어를 정확히 쓰기
+  function typingGame() {
+    const WORDS = ['커피', '탕비실', '아이스 아메리카노', '컵라면', '오징어짬뽕', '불닭볶음면', '신라면', '햇반', '믹스커피', '종이컵', '정수기', '전자레인지', '냉장고', '초코파이', '포카칩', '새우깡', '빼빼로', '홈런볼', '건의사항', '점심시간', '퇴근', '월급날', '회의실', '야근 금지', '간식 서랍', '텀블러'];
+    let score = 0, word = '', end = Date.now() + 40000, iv = 0, over = false;
+    const pick = () => { let w; do { w = WORDS[Math.floor(Math.random() * WORDS.length)]; } while (w === word); word = w; };
+    pick();
+    panel.innerHTML = `
+      <button class="close" id="x">닫기</button>
+      <h2>타자 연습</h2>
+      <p class="sub">보이는 글자를 그대로 입력하세요. 맞으면 바로 다음 글자가 나옵니다.</p>
+      <div class="steps"><span class="on" id="tleft">40초</span><span class="done" id="tscore">0개</span></div>
+      <div class="result" id="tword">${esc(word)}</div>
+      <input type="text" id="tin" autocomplete="off" style="width:100%;font-size:20px;padding:8px 10px;box-sizing:border-box">
+      <div class="bar"><i id="tb" style="width:100%"></i></div>`;
+    const inp = $('#tin'); setTimeout(() => inp.focus(), 50);
+    const check = () => { if (over) return; if (inp.value.trim() === word) { score++; $('#tscore').textContent = `${score}개`; pick(); $('#tword').textContent = word; inp.value = ''; } };
+    inp.addEventListener('input', e => { if (!e.isComposing) check(); });
+    inp.addEventListener('compositionend', () => setTimeout(check, 0));
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); check(); } });
+    iv = setInterval(() => {
+      const left = end - Date.now(); const tl = $('#tleft'), tb = $('#tb'); if (tl) tl.textContent = `${Math.max(0, Math.ceil(left / 1000))}초`; if (tb) tb.style.width = `${Math.max(0, left / 400)}%`;
+      if (left <= 0 && !over) { over = true; clearInterval(iv); result('타자 연습', `${score}개를 맞혔어요`, Math.min(8, Math.ceil(score / 2))); }
+    }, 100);
+    const click = e => { if (e.target.closest('#again')) { stop && stop(); stop = typingGame(); } };
+    panel.addEventListener('click', click);
+    return () => { over = true; clearInterval(iv); panel.removeEventListener('click', click); };
+  }
+  menu();
+  cleanup = () => { if (stop) stop(); stop = null; panel.onclick = null; overlay.classList.remove('side'); endFocus(); };
+};
 
 /* ---------- 선반: 컵라면·햇반 꺼내기 ---------- */
 APPS.pantry = () => {
@@ -1997,7 +2162,7 @@ function updateHud() {
   if (mess.dishes) parts.push(`설거지 ${mess.dishes}`);
   if (mess.tumblers) parts.push(`텀블러 ${mess.tumblers}`);
   hudEl.innerHTML = `청결도 <b class="${c < 60 ? 'low' : ''}">${c}%</b><div class="tasks">${parts.length ? parts.join(' · ') : '깨끗합니다'}</div>`
-    + '<div class="tasks" id="messleft"></div><button id="messbtn">일부러 어지르기</button>';
+    + `<div class="tasks">코인 ${getCoins()}개</div><div class="tasks" id="messleft"></div><button id="messbtn">일부러 어지르기</button>`;
   tickMessLeft();
 }
 hudEl.addEventListener('click', e => { if (e.target.closest('#messbtn')) messUp(); });
@@ -2536,8 +2701,8 @@ const panelMat = new THREE.MeshBasicMaterial({ color: 0xfffaf0 });
 fpsShell.visible = false;
 scene.add(fpsShell);
 const FPS_BLOCKS = [[-2.85, 3.05, -4.0, -2.8], [3.0, 4.95, -3.95, -3.1], [-5.0, -3.95, -3.1, -0.8],
-  [-4.9, -3.45, -0.75, 0.95], [0.45, 1.95, 0.6, 1.6], [2.65, 4.15, 0.6, 1.6], [4.1, 4.7, 2.8, 3.4],
-  [6.4, 7.6, -3.95, -2.95], [8.85, 9.95, -0.2, 3.3], [8.9, 9.7, -1.6, -0.8], [-4.8, -3.0, -3.95, -3.35], [3.2, 5.5, -3.95, -3.4]];   // 가구가 차지하는 자리 [x0, x1, z0, z1]
+  [-4.9, -3.45, -0.75, 0.95], [0.45, 1.95, 0.6, 1.6], [2.65, 4.15, 0.6, 1.6], [3.9, 4.9, 2.6, 3.6],
+  [6.4, 7.6, -3.95, -2.95], [8.85, 9.95, -0.2, 3.3], [8.9, 9.7, -1.6, -0.8], [-4.8, -3.0, -3.95, -3.35], [3.2, 5.5, -3.95, -3.4], [7.5, 9.0, -3.95, -3.6]];   // 가구가 차지하는 자리 [x0, x1, z0, z1]
 function fpsBlocked(x, z) {
   if (x < -4.6 || x > 9.6 || z > 5.6 || z < -3.6) return true;
   return FPS_BLOCKS.some(([x0, x1, z0, z1]) => x > x0 - FPS_R && x < x1 + FPS_R && z > z0 - FPS_R && z < z1 + FPS_R);
@@ -2959,7 +3124,7 @@ if (location.search.includes('debug')) {
     barInfo() { return { shown: ibarEl.style.display, text: ibarEl.textContent, overlayOpen: overlay.classList.contains('open') }; },
     screenOf(id) {
       const g = clickable.find(c => c.userData.id === id);
-      const anchors = { snack: [-1.09, 0.63, -2.98], lunch: [1.2, 0.8, 1.1], pantry: [-3.9, 1.6, -3.4], trash: [4.4, 0.4, -3.6], purifier: [-3.45, 1.2, -3.5], vending: [7.0, 1.1, -3.0], sink: [-4.2, 1.05, -1.5], window: [-4.84, 2.4, 2.4], aircon: [-4.78, 3.3, -1.95], clock: [-3.5, 3.1, -3.8], fridge: [-3.5, 0.75, 0.1], freezer: [-3.5, 1.98, 0.1] };
+      const anchors = { snack: [-1.09, 0.63, -2.98], lunch: [1.2, 0.8, 1.1], pantry: [-3.9, 1.6, -3.4], trash: [4.4, 0.4, -3.6], purifier: [-3.45, 1.2, -3.5], vending: [7.0, 1.1, -3.0], sink: [-4.2, 1.05, -1.5], window: [-4.84, 2.4, 3.2], aircon: [-4.78, 3.3, -1.95], clock: [-3.5, 3.1, -3.8], fridge: [-3.5, 0.75, 0.1], freezer: [-3.5, 1.98, 0.1] };
       const v = (anchors[id] ? new THREE.Vector3(...anchors[id]) : new THREE.Box3().setFromObject(g).getCenter(new THREE.Vector3())).project(camera);
       return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight];
     }
