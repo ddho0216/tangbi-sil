@@ -142,7 +142,7 @@ const CZ = -3.45;
 rbox(5.6, 0.85, 0.9, 0xe9e7e2, 0.1, 0.425, CZ, scene, 0.015);
 rbox(5.7, 0.08, 1.0, 0x3a3d42, 0.1, 0.89, CZ, scene, 0.03, { roughness: 0.35 });   // 짙은 차콜 상판
 for (let i = 0; i <= 5; i++) rbox(0.012, 0.76, 0.02, 0x8d8a83, -2.5 + i * 0.94, 0.45, CZ + 0.46, scene, 0.004);
-for (let i = 0; i < 5; i++) rbox(0.22, 0.02, 0.025, 0x2e3338, -2.03 + i * 0.94, 0.78, CZ + 0.47, scene, 0.008, STEEL);
+for (let i = 3; i < 5; i++) rbox(0.22, 0.02, 0.025, 0x2e3338, -2.03 + i * 0.94, 0.78, CZ + 0.47, scene, 0.008, STEEL);
 
 /* ---------- 가전 공통: 파스텔 색과 크롬 ---------- */
 const PASTEL = { mint: 0xc5cacd, blue: 0x30363b, cream: 0xe7e4dd, pink: 0xc2c7ca, lemon: 0xe9e3c9 };   // (이름은 예전 그대로, 색은 스테인리스·그래파이트·오프화이트)
@@ -525,33 +525,31 @@ const SNACK_DEFAULT = [16, 14, 6, 18, 10, 15];     // 개수 (서랍 속 과자 
 const SNACK_LOW = 5, SNACK_ORDER = 16;
 const SNACK_FRONT = [0xeceae6, 0xd8d4cc, 0xeceae6, 0xd8d4cc, 0xeceae6, 0xd8d4cc];
 const SNACK_FRONT_CSS = ['#eceae6', '#d8d4cc', '#eceae6', '#d8d4cc', '#eceae6', '#d8d4cc'];
-const SNACK_PULL = 0.55;
+const SNACK_PULL = 0.7;
 let snackIdx = -1;                                  // 지금 열려 있는 서랍 번호 (-1이면 모두 닫힘)
+// 따로 서 있는 서랍장 대신, 카운터 아래 하부장 세 칸을 각각 서랍 두 개로 바꿨다
 const snackChest = new THREE.Group();
 const snackDrawers = [];
-rbox(1.12, 1.7, 0.72, 0xc9a97a, 0, 0.9, 0, snackChest, 0.02);
-rbox(1.2, 0.06, 0.8, 0x3a3d42, 0, 1.78, 0, snackChest, 0.015);
-rbox(1.12, 0.08, 0.72, 0x2e3338, 0, 0.04, 0, snackChest, 0.02);
+const DRAWER_FRONT_Z = CZ + 0.45;                   // 하부장 앞면
 for (let i = 0; i < 6; i++) {
-  const row = Math.floor(i / 2), x = i % 2 ? 0.28 : -0.28, y = [1.5, 0.94, 0.38][row];
-  rbox(0.52, 0.5, 0.004, 0x4a4036, x, y, 0.362, snackChest, 0.002);                  // 서랍이 나간 빈자리
+  const col = Math.floor(i / 2), up = i % 2 === 0;
+  const x = -2.03 + col * 0.94, y = up ? 0.63 : 0.23;
   const d = new THREE.Group();
-  d.position.set(x, y, 0);
+  d.position.set(x, y, DRAWER_FRONT_Z);
   d.userData.idx = i; d.userData.pull = SNACK_PULL;
-  d.userData.front = rbox(0.52, 0.5, 0.03, SNACK_FRONT[i], 0, 0, 0.375, d, 0.01);    // 서랍 앞판 (눌러서 연다)
-  rbox(0.22, 0.02, 0.03, 0x2e3338, 0, -0.1, 0.4, d, 0.008, STEEL);                  // 손잡이
-  rbox(0.48, 0.02, 0.5, 0xe6d3b3, 0, -0.2, 0.11, d, 0.008);                          // 서랍 바닥
-  rbox(0.02, 0.14, 0.5, 0xe6d3b3, -0.25, -0.13, 0.11, d, 0.008);
-  rbox(0.02, 0.14, 0.5, 0xe6d3b3, 0.25, -0.13, 0.11, d, 0.008);
-  rbox(0.5, 0.14, 0.02, 0xe6d3b3, 0, -0.13, -0.14, d, 0.008);
-  [-0.12, 0, 0.12].forEach(lx => rbox(0.004, 0.004, 0.48, 0xc9b790, lx, -0.188, 0.11, d, 0.001));   // 칸 구분선 (4칸 x 3줄)
-  [0.055, 0.205].forEach(lz => rbox(0.48, 0.004, 0.004, 0xc9b790, 0, -0.188, lz, d, 0.001));
-  d.userData.lowTag = rbox(0.14, 0.05, 0.01, 0xd94e4e, 0.17, 0.2, 0.4, d, 0.01, { emissive: 0x8a1f1f, emissiveIntensity: 0.5 });
+  d.userData.front = rbox(0.88, 0.38, 0.03, SNACK_FRONT[i], 0, 0, 0.0, d, 0.008);       // 서랍 앞판 (눌러서 연다)
+  rbox(0.3, 0.02, 0.03, 0x2e3338, 0, 0.11, 0.03, d, 0.008, STEEL);                      // 손잡이
+  rbox(0.84, 0.02, 0.5, 0xe6d3b3, 0, -0.13, -0.28, d, 0.008);                           // 서랍 바닥
+  rbox(0.02, 0.12, 0.5, 0xe6d3b3, -0.43, -0.08, -0.28, d, 0.008);
+  rbox(0.02, 0.12, 0.5, 0xe6d3b3, 0.43, -0.08, -0.28, d, 0.008);
+  rbox(0.88, 0.12, 0.02, 0xe6d3b3, 0, -0.08, -0.53, d, 0.008);
+  [-0.24, -0.12, 0, 0.12, 0.24].forEach(lx => rbox(0.004, 0.004, 0.48, 0xc9b790, lx, -0.118, -0.28, d, 0.001));   // 칸 구분선 (6칸 x 3줄)
+  [-0.35, -0.21].forEach(lz => rbox(0.84, 0.004, 0.004, 0xc9b790, 0, -0.118, lz, d, 0.001));
+  d.userData.lowTag = rbox(0.14, 0.05, 0.01, 0xd94e4e, 0.34, -0.12, 0.02, d, 0.01, { emissive: 0x8a1f1f, emissiveIntensity: 0.5 });
   const items = new THREE.Group(); d.add(items); d.userData.items = items;
   snackChest.add(d); snackDrawers.push(d);
 }
-snackChest.position.set(-3.35, 0, -3.5);
-makeInteractive(snackChest, 'snack', '간식 서랍장 · 눌러서 열기');
+makeInteractive(snackChest, 'snack', '간식 서랍 · 눌러서 열기');
 
 function makeSnack(type) {
   const g = new THREE.Group();
@@ -586,7 +584,7 @@ function snackLabels() {
   snackDrawers.forEach((d, i) => {
     if (d.userData.label) { d.remove(d.userData.label); disposeObj(d.userData.label); }
     const label = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.11), new THREE.MeshStandardMaterial({ map: textTexture([SNACK_SHORT[i]], SNACK_FRONT_CSS[i], '#2b2620', 256, 80, 50) }));
-    label.position.set(0, 0.12, 0.392); label.userData.owner = snackChest;
+    label.position.set(-0.12, -0.02, 0.018); label.userData.owner = snackChest;
     d.userData.label = label; d.add(label);
   });
 }
@@ -632,7 +630,7 @@ function makeSnackPack(i) {
   m.castShadow = true; m.receiveShadow = true;
   return m;
 }
-const SNACK_ROWZ = [-0.02, 0.13, 0.28];
+const SNACK_ROWZ = [-0.42, -0.28, -0.14];
 function refreshSnacks() {
   if (!snackLabels.done) { snackLabels(); snackLabels.done = true; }
   const q = getSnacks();
@@ -640,12 +638,12 @@ function refreshSnacks() {
   snackDrawers.forEach((d, i) => {
     const holder = d.userData.items;
     holder.children.slice().forEach(c => { holder.remove(c); disposeObj(c); });
-    const t = SNACK_DIM[i][1], n = Math.min(36, q[i]);       // 4칸 x 3줄 = 12자리, 자리마다 최대 3개까지 쌓는다
+    const t = SNACK_DIM[i][1], n = Math.min(36, q[i]);       // 6칸 x 3줄 = 18자리, 자리마다 최대 2개까지 쌓는다
     for (let k = 0; k < n; k++) {
-      const slot = k % 12, layer = Math.floor(k / 12);
+      const slot = k % 18, layer = Math.floor(k / 18);
       const g = newItem(holder, 'snack', i);
       const j = ((k * 37 + i * 11) % 10) / 10 - 0.5;          // 매번 같은 모양으로 살짝 흐트러뜨린다
-      g.position.set(-0.18 + (slot % 4) * 0.12 + j * 0.006, -0.19 + t * (layer + 0.5) + 0.001, SNACK_ROWZ[Math.floor(slot / 4)] + j * 0.006);
+      g.position.set(-0.3 + (slot % 6) * 0.12 + j * 0.006, -0.12 + t * (layer + 0.5) + 0.001, SNACK_ROWZ[Math.floor(slot / 6)] + j * 0.006);
       g.rotation.y = j * 0.06;
       g.add(makeSnackPack(i));
       g.traverse(o => { if (o.isMesh) o.userData.itemGroup = g; });
@@ -1145,7 +1143,7 @@ function tickWorld(dt) {
   if (now - wxLast > (animated ? 100 : 2000)) { wxLast = now; drawSky(now / 1000); }
   updateClock(); washTick(dt); ramenTick(); dripTick(); tagTick(dt); leavingTick(dt); pulledTick(dt);
   snackDrawers.forEach(d => {
-    const goal = snackIdx === d.userData.idx ? d.userData.pull : 0;      // 한 번에 한 칸만 열린다
+    const goal = DRAWER_FRONT_Z + (snackIdx === d.userData.idx ? d.userData.pull : 0);      // 한 번에 한 칸만 열린다
     d.position.z += (goal - d.position.z) * (1 - Math.exp(-dt * 6));
     if (Math.abs(goal - d.position.z) < 0.004) d.position.z = goal;      // 끝까지 딱 닫히거나 열리도록
   });
@@ -1570,11 +1568,11 @@ function eatSnack(g) {
   leave(g, () => { refreshSnacks(); if (currentApp === 'snack') showSnackBar(); });
   if (store.get('auto', true) && q[i] < SNACK_LOW) orderSnack(i, true);
 }
-const CHEST_VIEW = { pos: new THREE.Vector3(-2.2, 1.5, -0.8), target: new THREE.Vector3(-3.35, 0.95, -3.4) };
+const CHEST_VIEW = { pos: new THREE.Vector3(-1.1, 1.5, -0.7), target: new THREE.Vector3(-1.1, 0.5, -3.0) };
 function openDrawer(i) {
   snackIdx = i;
-  const d = snackDrawers[i], wx0 = snackChest.position.x + d.position.x, wz = snackChest.position.z + 0.11 + SNACK_PULL;
-  flyTo(new THREE.Vector3(wx0, d.position.y + 1.3, wz + 0.5), new THREE.Vector3(wx0, d.position.y - 0.15, wz - 0.02), 700);   // 열린 서랍을 바로 위에서 내려다본다
+  const d = snackDrawers[i], wx0 = d.position.x, wz = DRAWER_FRONT_Z + SNACK_PULL - 0.28;      // 열린 서랍 바닥 한가운데
+  flyTo(new THREE.Vector3(wx0, d.position.y + 1.25, wz + 0.55), new THREE.Vector3(wx0, d.position.y - 0.12, wz), 700);   // 열린 서랍을 바로 위에서 내려다본다
   hoverItem = null; labelEl.style.display = 'none';
   rebuildSnackTargets(); showSnackBar();
 }
@@ -1590,7 +1588,7 @@ function showSnackBar() {
   const autoLabel = () => `자동 주문 ${store.get('auto', true) ? '켜짐' : '꺼짐'}`;
   showBar({
     title: i < 0 ? '간식 서랍장' : `${SNACK_SHORT[i]} 서랍`,
-    info: i < 0 ? '서랍을 눌러 한 칸씩 열어요 · 빨간 표시: 모의 주문' : `${q[i]}개 · 4칸 x 3줄에 쌓여 있어요 (자리마다 최대 3개) · 누르면 먹기`,
+    info: i < 0 ? '서랍을 눌러 한 칸씩 열어요 · 빨간 표시: 모의 주문' : `${q[i]}개 · 6칸 x 3줄에 놓여 있어요 (자리마다 최대 2개) · 누르면 먹기`,
     buttons: [...(i >= 0 ? [['shut', '서랍 닫기']] : []), ['auto', autoLabel()]],
     onButton(act) {
       if (act === 'shut') { closeDrawer(); return; }
@@ -2408,7 +2406,7 @@ const panelMat = new THREE.MeshBasicMaterial({ color: 0xfffaf0 });
 }));
 fpsShell.visible = false;
 scene.add(fpsShell);
-const FPS_BLOCKS = [[-4.0, -2.7, -3.95, -3.0], [-2.85, 3.05, -4.0, -2.8], [3.0, 4.95, -3.95, -3.1], [-5.0, -3.95, -3.1, -0.8],
+const FPS_BLOCKS = [[-2.85, 3.05, -4.0, -2.8], [3.0, 4.95, -3.95, -3.1], [-5.0, -3.95, -3.1, -0.8],
   [-4.9, -3.45, -0.75, 0.95], [0.45, 1.95, 0.6, 1.6], [2.65, 4.15, 0.6, 1.6], [4.1, 4.7, 2.8, 3.4],
   [6.4, 7.6, -3.95, -2.95], [8.85, 9.95, -0.2, 3.3], [8.9, 9.7, -1.6, -0.8]];   // 가구가 차지하는 자리 [x0, x1, z0, z1]
 function fpsBlocked(x, z) {
@@ -2812,7 +2810,7 @@ if (location.search.includes('debug')) {
     fpsKey(k, down) { fps.keys[k] = down; },
     washForce() { wash.dishes.forEach(d => { while (d.dirt.length) dropMesh(d.dirt.pop()); while (d.foam.length) dropMesh(d.foam.pop()); checkDish(d); }); },
     pileCount() { return sinkPile.children.length; },
-    snackOpenInfo() { return { open: snackIdx, pulls: snackDrawers.map(d => +d.position.z.toFixed(2)), items: snackDrawers.map(d => d.userData.items.children.length) }; },
+    snackOpenInfo() { return { open: snackIdx, pulls: snackDrawers.map(d => +(d.position.z - DRAWER_FRONT_Z).toFixed(2)), items: snackDrawers.map(d => d.userData.items.children.length) }; },
     itemScreen(kind, i) {
       const all = [...itemTargets.fridge, ...itemTargets.freezer, ...itemTargets.sink, ...itemTargets.snack];
       const m = all.find(o => { const g = o.userData.itemGroup; return g && g.userData.info.kind === kind && (i === undefined || g.userData.info.i === i) && g.visible; });
@@ -2832,7 +2830,7 @@ if (location.search.includes('debug')) {
     barInfo() { return { shown: ibarEl.style.display, text: ibarEl.textContent, overlayOpen: overlay.classList.contains('open') }; },
     screenOf(id) {
       const g = clickable.find(c => c.userData.id === id);
-      const anchors = { snack: [-3.35, 1.0, -3.12], lunch: [1.2, 0.8, 1.1], vending: [7.0, 1.1, -3.0], sink: [-4.2, 1.05, -1.5], window: [-4.84, 2.4, 2.4], aircon: [-4.78, 3.3, -1.95], clock: [-3.5, 3.1, -3.8], fridge: [-3.5, 0.75, 0.1], freezer: [-3.5, 1.98, 0.1] };
+      const anchors = { snack: [-1.09, 0.63, -2.98], lunch: [1.2, 0.8, 1.1], vending: [7.0, 1.1, -3.0], sink: [-4.2, 1.05, -1.5], window: [-4.84, 2.4, 2.4], aircon: [-4.78, 3.3, -1.95], clock: [-3.5, 3.1, -3.8], fridge: [-3.5, 0.75, 0.1], freezer: [-3.5, 1.98, 0.1] };
       const v = (anchors[id] ? new THREE.Vector3(...anchors[id]) : new THREE.Box3().setFromObject(g).getCenter(new THREE.Vector3())).project(camera);
       return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight];
     }
