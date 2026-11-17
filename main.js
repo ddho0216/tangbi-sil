@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { DRINK_IMG } from './drink-images.js';
 import { SNACK_IMG } from './snack-images.js';
 
@@ -29,6 +30,7 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 stage.appendChild(renderer.domElement);
+const ENV_TEX = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;   // 방 안 반사광 (금속·유광이 진짜처럼 보이게)
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(2.5, 1.3, 0.8);
@@ -39,9 +41,9 @@ controls.maxDistance = 32;
 controls.minAzimuthAngle = -0.15;
 controls.maxAzimuthAngle = Math.PI / 2 + 0.15;
 
-const hemi = new THREE.HemisphereLight(0xfff4dd, 0xb09a78, 2.3);
+const hemi = new THREE.HemisphereLight(0xfff4e4, 0xb8a98c, 1.2);
 scene.add(hemi);
-const sun = new THREE.DirectionalLight(0xffffff, 1.9);
+const sun = new THREE.DirectionalLight(0xfff3e0, 2.0);
 sun.position.set(9, 11, 9);
 sun.target.position.set(2.5, 0, 1); scene.add(sun.target);
 sun.castShadow = true;
@@ -51,7 +53,7 @@ scene.add(sun);
 
 /* ---------- 도우미 (둥근 모서리 위주로, 각진 느낌을 줄인다) ---------- */
 function mat(color, opts = {}) {
-  return new THREE.MeshStandardMaterial({ color, roughness: 0.7, metalness: 0, ...opts });
+  return new THREE.MeshStandardMaterial({ color, roughness: 0.62, metalness: 0, envMap: ENV_TEX, envMapIntensity: 0.4, ...opts });
 }
 function put(mesh, x, y, z, parent) {
   mesh.position.set(x, y, z);
@@ -137,13 +139,14 @@ function setGlow(id, on) {
 
 /* ---------- 카운터 (뒷벽) ---------- */
 const CZ = -3.45;
-rbox(5.6, 0.85, 0.9, 0xf4efe6, 0.1, 0.425, CZ, scene, 0.03);
+rbox(5.6, 0.85, 0.9, 0xe9e7e2, 0.1, 0.425, CZ, scene, 0.015);
 rbox(5.7, 0.08, 1.0, 0x3a3d42, 0.1, 0.89, CZ, scene, 0.03, { roughness: 0.35 });   // 짙은 차콜 상판
-for (let i = 0; i <= 5; i++) rbox(0.02, 0.7, 0.02, 0xcfc6b6, -2.5 + i * 0.94, 0.45, CZ + 0.46, scene, 0.005);
-for (let i = 0; i < 5; i++) rbox(0.22, 0.03, 0.03, 0x8a9096, -2.03 + i * 0.94, 0.72, CZ + 0.47, scene, 0.012);
+for (let i = 0; i <= 5; i++) rbox(0.012, 0.76, 0.02, 0x8d8a83, -2.5 + i * 0.94, 0.45, CZ + 0.46, scene, 0.004);
+for (let i = 0; i < 5; i++) rbox(0.22, 0.02, 0.025, 0x2e3338, -2.03 + i * 0.94, 0.78, CZ + 0.47, scene, 0.008, STEEL);
 
 /* ---------- 가전 공통: 파스텔 색과 크롬 ---------- */
-const PASTEL = { mint: 0xbfe3d0, blue: 0xbcd8ee, cream: 0xf4ead2, pink: 0xf5c9d4, lemon: 0xf7e8ac };
+const PASTEL = { mint: 0xc5cacd, blue: 0x30363b, cream: 0xe7e4dd, pink: 0xc2c7ca, lemon: 0xe9e3c9 };   // (이름은 예전 그대로, 색은 스테인리스·그래파이트·오프화이트)
+const STEEL = { metalness: 0.55, roughness: 0.36, envMapIntensity: 1.2 };
 const CHROME = { metalness: 0.4, roughness: 0.25 };
 const CHROME_C = 0xe6eaed;
 
@@ -221,12 +224,21 @@ function posterTex(top, mid, bot, bg, fg) {
   pm.position.set(x, y, Z0 + 0.138); scene.add(pm);
 });
 
-/* ---------- 에스프레소 머신 (파스텔 블루, 레트로 곡선) ---------- */
+
+// 카운터 위 상부장 (화이트 도어, 하부 간접조명)
+for (let i = 0; i < 6; i++) {
+  const x = -2.55 + i * 0.93;
+  rbox(0.9, 0.85, 0.36, 0xeceae6, x, 2.32, Z0 + 0.3, scene, 0.012);
+  rbox(0.2, 0.02, 0.025, 0x2e3338, x + (i % 2 ? -0.3 : 0.3), 1.95, Z0 + 0.49, scene, 0.008, STEEL);
+}
+rbox(5.6, 0.02, 0.34, 0xfff3d6, 0.1, 1.88, Z0 + 0.3, scene, 0.005, { emissive: 0xffe2a8, emissiveIntensity: 1.2 });   // 상부장 아래 조명
+
+/* ---------- 에스프레소 머신 (그래파이트 + 크롬) ---------- */
 const coffee = new THREE.Group();
 rbox(0.5, 0.05, 0.36, CHROME_C, 0, 0.025, 0.02, coffee, 0.02, CHROME);          // 크롬 받침
 rbox(0.42, 0.012, 0.27, 0x9aa1a6, 0, 0.056, 0.05, coffee, 0.005);               // 드립 그릴
-rbox(0.3, 0.5, 0.22, PASTEL.blue, 0, 0.3, -0.09, coffee, 0.1);                  // 기둥
-rbox(0.42, 0.2, 0.32, PASTEL.blue, 0, 0.5, 0.0, coffee, 0.1);                   // 머리
+rbox(0.3, 0.5, 0.22, PASTEL.blue, 0, 0.3, -0.09, coffee, 0.03, { roughness: 0.35 });                  // 기둥
+rbox(0.42, 0.2, 0.32, PASTEL.blue, 0, 0.5, 0.0, coffee, 0.03, { roughness: 0.35 });                   // 머리
 cyl(0.06, 0.05, 0.04, CHROME_C, 0, 0.385, 0.08, coffee, CHROME);                // 포터필터
 const pfHandle = cyl(0.016, 0.016, 0.2, 0x2f3438, -0.16, 0.375, 0.13, coffee);  // 검은 손잡이
 pfHandle.rotation.z = Math.PI / 2;
@@ -243,7 +255,7 @@ makeInteractive(coffee, 'coffee', '에스프레소 머신');
 const toaster = new THREE.Group();
 const breads = [];
 rbox(0.52, 0.025, 0.28, CHROME_C, 0, 0.0125, 0, toaster, 0.01, CHROME);
-rbox(0.5, 0.28, 0.26, PASTEL.cream, 0, 0.17, 0, toaster, 0.12);
+rbox(0.5, 0.28, 0.26, 0xcfd2d5, 0, 0.17, 0, toaster, 0.05, STEEL);
 const slotMat = rbox(0.4, 0.008, 0.04, 0x6e6a62, 0, 0.312, 0.05, toaster, 0.004);
 rbox(0.4, 0.008, 0.04, 0x6e6a62, 0, 0.312, -0.05, toaster, 0.004).material = slotMat.material;
 glow.toaster = { mat: slotMat.material, on: 0xff6a3d, off: 0 };
@@ -261,9 +273,9 @@ makeInteractive(toaster, 'toaster', '토스터');
 /* ---------- 전자레인지 (파스텔 핑크) ---------- */
 const microwave = new THREE.Group();
 rbox(0.9, 0.02, 0.5, CHROME_C, 0, 0.01, 0, microwave, 0.008, CHROME);
-rbox(0.96, 0.5, 0.56, PASTEL.pink, 0, 0.27, 0, microwave, 0.14);
-rbox(0.62, 0.42, 0.03, CHROME_C, -0.12, 0.28, 0.285, microwave, 0.12, CHROME);
-const mwDoor = rbox(0.55, 0.35, 0.03, 0x2b3036, -0.12, 0.28, 0.3, microwave, 0.1);
+rbox(0.96, 0.5, 0.56, 0xc6cacd, 0, 0.27, 0, microwave, 0.04, STEEL);
+rbox(0.62, 0.42, 0.03, 0x1b1e21, -0.12, 0.28, 0.285, microwave, 0.04);
+const mwDoor = rbox(0.55, 0.35, 0.03, 0x2b3036, -0.12, 0.28, 0.3, microwave, 0.03, { roughness: 0.15 });
 glow.microwave = { mat: mwDoor.material, on: 0xff9a2e, off: 0 };
 cyl(0.06, 0.06, 0.04, CHROME_C, 0.36, 0.38, 0.29, microwave, CHROME).rotation.x = Math.PI / 2;
 cyl(0.06, 0.06, 0.04, CHROME_C, 0.36, 0.18, 0.29, microwave, CHROME).rotation.x = Math.PI / 2;
@@ -277,7 +289,7 @@ makeInteractive(microwave, 'microwave', '전자레인지');
 const kettle = new THREE.Group();
 const kBase = cyl(0.18, 0.19, 0.035, 0xcfd6da, 0, 0.0175, 0, kettle, CHROME);
 glow.kettle = { mat: kBase.material, on: 0x2d9cdb, off: 0 };
-sph(1, PASTEL.mint, 0, 0.22, 0, kettle, [0.16, 0.19, 0.16]);
+cyl(0.12, 0.15, 0.38, 0xd5d8db, 0, 0.22, 0, kettle, STEEL);
 cyl(0.065, 0.09, 0.03, CHROME_C, 0, 0.405, 0, kettle, CHROME);
 sph(0.026, CHROME_C, 0, 0.435, 0, kettle);
 cyl(0.015, 0.055, 0.12, CHROME_C, 0.16, 0.32, 0, kettle, CHROME).rotation.z = -0.8;
@@ -288,16 +300,16 @@ makeInteractive(kettle, 'kettle', '전기포트');
 
 /* ---------- 대형 냉장고 (파스텔 민트, 열리는 문) ---------- */
 const fridge = new THREE.Group();
-const fridgeInner = { emissive: 0xffffff, emissiveIntensity: 0.12 };
-rbox(0.06, 2.4, 1.5, 0xf1f5f4, -0.62, 1.2, 0, fridge, 0.02, fridgeInner);            // 뒷판
-rbox(1.3, 2.4, 0.06, PASTEL.mint, 0, 1.2, -0.72, fridge, 0.06);                      // 옆판
-rbox(1.3, 2.4, 0.06, PASTEL.mint, 0, 1.2, 0.72, fridge, 0.06);
-rbox(1.3, 0.12, 1.5, PASTEL.mint, 0, 0.06, 0, fridge, 0.03);                         // 하단
-rbox(1.3, 0.08, 1.5, PASTEL.mint, 0, 1.52, 0, fridge, 0.03);                         // 칸막이
-rbox(1.3, 0.16, 1.5, PASTEL.mint, 0, 2.34, 0, fridge, 0.14);                         // 둥근 윗판
-rbox(1.2, 1.36, 0.012, 0xf3f6f5, -0.02, 0.82, -0.684, fridge, 0.004, fridgeInner);   // 안쪽 벽
-rbox(1.2, 1.36, 0.012, 0xf3f6f5, -0.02, 0.82, 0.684, fridge, 0.004, fridgeInner);
-rbox(1.2, 0.012, 1.36, 0xf3f6f5, -0.02, 0.13, 0, fridge, 0.004, fridgeInner);
+const fridgeInner = { emissive: 0xffffff, emissiveIntensity: 0.03 };
+rbox(0.06, 2.4, 1.5, 0xd6dbde, -0.62, 1.2, 0, fridge, 0.02, fridgeInner);            // 뒷판
+rbox(1.3, 2.4, 0.06, 0xc9ced1, 0, 1.2, -0.72, fridge, 0.02, STEEL);                      // 옆판
+rbox(1.3, 2.4, 0.06, 0xc9ced1, 0, 1.2, 0.72, fridge, 0.02, STEEL);
+rbox(1.3, 0.12, 1.5, 0x3a3f44, 0, 0.06, 0, fridge, 0.02);                         // 하단
+rbox(1.3, 0.08, 1.5, 0xc9ced1, 0, 1.52, 0, fridge, 0.02, STEEL);                         // 칸막이
+rbox(1.3, 0.16, 1.5, 0xc9ced1, 0, 2.34, 0, fridge, 0.02, STEEL);                         // 둥근 윗판
+rbox(1.2, 1.36, 0.012, 0xd6dbde, -0.02, 0.82, -0.684, fridge, 0.004, fridgeInner);   // 안쪽 벽
+rbox(1.2, 1.36, 0.012, 0xd6dbde, -0.02, 0.82, 0.684, fridge, 0.004, fridgeInner);
+rbox(1.2, 0.012, 1.36, 0xd6dbde, -0.02, 0.13, 0, fridge, 0.004, fridgeInner);
 for (const y of [0.5, 0.88, 1.2]) rbox(1.18, 0.018, 1.36, 0xdff0f2, -0.02, y, 0, fridge, 0.008, { transparent: true, opacity: 0.55 });
 for (let i = 0; i < 3; i++) rbox(0.02, 0.012, 1.46, CHROME_C, 0.66, 0.03 + i * 0.03, 0, fridge, 0.005, CHROME);   // 크롬 하단 선
 // 냉동실 문 (냉장실과 따로, 경첩이 뒤쪽에 있어 앞으로 열린다) + 안쪽
@@ -310,10 +322,10 @@ const freezerParts = [
   rbox(1.18, 0.018, 1.36, 0xdff0f2, -0.02, 1.92, 0, fridge, 0.008, { transparent: true, opacity: 0.55 })
 ];
 const freezerDoor = new THREE.Group();
-rbox(0.07, 0.84, 1.44, PASTEL.mint, 0, 0.42, 0.72, freezerDoor, 0.07);
+rbox(0.07, 0.84, 1.44, 0xc9ced1, 0, 0.42, 0.72, freezerDoor, 0.02, STEEL);
 rbox(0.02, 0.76, 1.36, 0x9fb0bb, -0.045, 0.42, 0.72, freezerDoor, 0.004, { emissive: 0x5d7688, emissiveIntensity: 0.06 });
-rbox(0.05, 0.3, 0.05, CHROME_C, 0.065, 0.42, 1.32, freezerDoor, 0.018, CHROME);
-rbox(0.02, 0.14, 0.12, 0xbcd8ee, 0.04, 0.6, 0.5, freezerDoor, 0.03);
+rbox(0.035, 0.5, 0.035, 0x8f969b, 0.075, 0.42, 1.3, freezerDoor, 0.012, STEEL);
+rbox(0.02, 0.1, 0.08, 0xe9b949, 0.04, 0.6, 0.5, freezerDoor, 0.02);
 freezerDoor.position.set(0.65, 1.56, -0.72);
 fridge.add(freezerDoor);
 const freezerItems = new THREE.Group();
@@ -324,13 +336,13 @@ freezerOwner.userData.id = 'freezer'; freezerOwner.userData.label = '냉동실 �
 fridge.add(freezerOwner);
 // 냉장실 문 (경첩이 뒤쪽 -z, 앞으로 열린다)
 const fridgeDoor = new THREE.Group();
-rbox(0.07, 1.38, 1.44, PASTEL.mint, 0, 0.69, 0.72, fridgeDoor, 0.07);
-rbox(0.02, 1.3, 1.36, 0xf3f6f5, -0.045, 0.69, 0.72, fridgeDoor, 0.004, fridgeInner);
+rbox(0.07, 1.38, 1.44, 0xc9ced1, 0, 0.69, 0.72, fridgeDoor, 0.02, STEEL);
+rbox(0.02, 1.3, 1.36, 0xd6dbde, -0.045, 0.69, 0.72, fridgeDoor, 0.004, fridgeInner);
 rbox(0.1, 0.02, 1.3, 0xdff0f2, -0.1, 0.45, 0.72, fridgeDoor, 0.008);
 rbox(0.1, 0.02, 1.3, 0xdff0f2, -0.1, 0.95, 0.72, fridgeDoor, 0.008);
-rbox(0.05, 0.55, 0.05, CHROME_C, 0.065, 0.8, 1.32, fridgeDoor, 0.018, CHROME);
-rbox(0.02, 0.18, 0.12, 0xf5c9d4, 0.04, 1.2, 0.35, fridgeDoor, 0.03);                 // 마그넷
-rbox(0.02, 0.14, 0.14, 0xf7e8ac, 0.04, 1.0, 0.2, fridgeDoor, 0.03);
+rbox(0.035, 0.95, 0.035, 0x8f969b, 0.075, 0.75, 1.3, fridgeDoor, 0.012, STEEL);
+rbox(0.02, 0.12, 0.08, 0xd94e4e, 0.04, 1.2, 0.35, fridgeDoor, 0.02);                 // 마그넷
+rbox(0.02, 0.1, 0.1, 0x2b6cb0, 0.04, 1.0, 0.2, fridgeDoor, 0.02);
 fridgeDoor.position.set(0.65, 0.12, -0.72);
 fridge.add(fridgeDoor);
 const fridgeLight = new THREE.PointLight(0xfff2dd, 0, 2.6);
@@ -511,23 +523,23 @@ const SNACK_NAMES = ['초코파이 (오리온)', '포카칩 (오리온)', '오�
 const SNACK_SHORT = ['초코파이', '포카칩', '오징어땅콩', '새우깡', '빼빼로', '홈런볼'];
 const SNACK_DEFAULT = [16, 14, 6, 18, 10, 15];     // 개수 (서랍 속 과자 하나가 1개)
 const SNACK_LOW = 5, SNACK_ORDER = 16;
-const SNACK_FRONT = [0xbfe3d0, 0xbcd8ee, 0xf5c9d4, 0xf7e8ac, 0xf6d9c9, 0xd5ecd8];
-const SNACK_FRONT_CSS = ['#bfe3d0', '#bcd8ee', '#f5c9d4', '#f7e8ac', '#f6d9c9', '#d5ecd8'];
+const SNACK_FRONT = [0xeceae6, 0xd8d4cc, 0xeceae6, 0xd8d4cc, 0xeceae6, 0xd8d4cc];
+const SNACK_FRONT_CSS = ['#eceae6', '#d8d4cc', '#eceae6', '#d8d4cc', '#eceae6', '#d8d4cc'];
 const SNACK_PULL = 0.55;
 let snackIdx = -1;                                  // 지금 열려 있는 서랍 번호 (-1이면 모두 닫힘)
 const snackChest = new THREE.Group();
 const snackDrawers = [];
-rbox(1.12, 1.7, 0.72, PASTEL.cream, 0, 0.9, 0, snackChest, 0.05);
-rbox(1.2, 0.06, 0.8, 0xb98a5a, 0, 1.78, 0, snackChest, 0.025);
-rbox(1.12, 0.08, 0.72, 0x8a6a52, 0, 0.04, 0, snackChest, 0.02);
+rbox(1.12, 1.7, 0.72, 0xc9a97a, 0, 0.9, 0, snackChest, 0.02);
+rbox(1.2, 0.06, 0.8, 0x3a3d42, 0, 1.78, 0, snackChest, 0.015);
+rbox(1.12, 0.08, 0.72, 0x2e3338, 0, 0.04, 0, snackChest, 0.02);
 for (let i = 0; i < 6; i++) {
   const row = Math.floor(i / 2), x = i % 2 ? 0.28 : -0.28, y = [1.5, 0.94, 0.38][row];
   rbox(0.52, 0.5, 0.004, 0x4a4036, x, y, 0.362, snackChest, 0.002);                  // 서랍이 나간 빈자리
   const d = new THREE.Group();
   d.position.set(x, y, 0);
   d.userData.idx = i; d.userData.pull = SNACK_PULL;
-  d.userData.front = rbox(0.52, 0.5, 0.03, SNACK_FRONT[i], 0, 0, 0.375, d, 0.03);    // 서랍 앞판 (눌러서 연다)
-  rbox(0.22, 0.03, 0.04, CHROME_C, 0, -0.1, 0.4, d, 0.012, CHROME);                  // 손잡이
+  d.userData.front = rbox(0.52, 0.5, 0.03, SNACK_FRONT[i], 0, 0, 0.375, d, 0.01);    // 서랍 앞판 (눌러서 연다)
+  rbox(0.22, 0.02, 0.03, 0x2e3338, 0, -0.1, 0.4, d, 0.008, STEEL);                  // 손잡이
   rbox(0.48, 0.02, 0.5, 0xe6d3b3, 0, -0.2, 0.11, d, 0.008);                          // 서랍 바닥
   rbox(0.02, 0.14, 0.5, 0xe6d3b3, -0.25, -0.13, 0.11, d, 0.008);
   rbox(0.02, 0.14, 0.5, 0xe6d3b3, 0.25, -0.13, 0.11, d, 0.008);
@@ -973,7 +985,7 @@ function drawSky(t = 0) {
 }
 function applyEnv() {
   const b = bright(simHour()), k = { clear: 1, cloudy: 0.88, rain: 0.78, snow: 0.92 }[wx];
-  hemi.intensity = (1.0 + 1.3 * b) * k;
+  hemi.intensity = (0.55 + 0.75 * b) * k;
   sun.intensity = (0.5 + 1.4 * b) * k;
   sun.color.set(rgbCss(mix([188, 200, 255], [255, 244, 221], b)));
   scene.background.set(rgbCss(mix([58, 59, 74], [228, 217, 196], b)));
@@ -999,8 +1011,8 @@ function ring(y, h, color, ox, oz, r) {
     if (zz1 > zz0) rbox(HX1 - HX0, h, zz1 - zz0, color, (HX0 + HX1) / 2, y, (zz0 + zz1) / 2, sink, r);
   });
 }
-rbox(0.9, 0.58, 2.1, 0xf4efe6, 0, 0.29, 0, sink, 0.03);                                 // 아래 수납장
-ring(0.715, 0.27, 0xf4efe6, 0.45, 1.05, 0.01);
+rbox(0.9, 0.58, 2.1, 0xe9e7e2, 0, 0.29, 0, sink, 0.015);                                 // 아래 수납장
+ring(0.715, 0.27, 0xe9e7e2, 0.45, 1.05, 0.01);
 ring(0.89, 0.08, 0x3a3d42, 0.5, 1.1, 0.02);                                              // 상판
 HOLES.forEach(([z0, z1, fl]) => {
   const cx = (HX0 + HX1) / 2, cz = (z0 + z1) / 2, bh = TOP - fl;
@@ -1060,8 +1072,8 @@ function dripTick() {
 
 /* ---------- 정수기 + 종이컵 ---------- */
 const purifier = new THREE.Group();
-rbox(0.36, 1.0, 0.4, 0xeaf3f0, 0, 0.5, 0, purifier, 0.08);
-rbox(0.37, 0.04, 0.41, PASTEL.mint, 0, 0.99, 0, purifier, 0.02);
+rbox(0.36, 1.0, 0.4, 0xeeeeec, 0, 0.5, 0, purifier, 0.03);
+rbox(0.37, 0.04, 0.41, 0x9aa1a6, 0, 0.99, 0, purifier, 0.015, STEEL);
 rbox(0.3, 0.2, 0.03, 0xdfe7ea, 0, 0.8, 0.2, purifier, 0.03);
 for (const [x, c] of [[-0.09, 0x4aa3e8], [0, 0xbfe6f5], [0.09, 0xe86f6f]]) {
   cyl(0.022, 0.022, 0.02, c, x, 0.83, 0.22, purifier, { emissive: c, emissiveIntensity: 0.25 }).rotation.x = Math.PI / 2;
@@ -1096,8 +1108,8 @@ function refreshCups() {
 
 /* ---------- 벽걸이 에어컨 ---------- */
 const aircon = new THREE.Group();
-rbox(0.24, 0.32, 1.2, 0xf6f4ee, 0, 0, 0, aircon, 0.08);
-rbox(0.01, 0.02, 1.0, PASTEL.mint, 0.12, -0.02, 0, aircon, 0.005);
+rbox(0.24, 0.32, 1.2, 0xf4f3ef, 0, 0, 0, aircon, 0.05, { roughness: 0.4 });
+rbox(0.01, 0.02, 1.0, 0x9aa1a6, 0.12, -0.02, 0, aircon, 0.005, STEEL);
 const acFlap = new THREE.Group();
 rbox(0.1, 0.015, 1.08, 0xeceae3, 0.05, 0, 0, acFlap, 0.006);
 acFlap.position.set(0.12, -0.15, 0);
@@ -1161,8 +1173,8 @@ setInterval(() => { applyEnv(); drawSky(performance.now() / 1000); }, 30000);
 /* ---------- 점심 테이블 두 개 ---------- */
 const lunch = new THREE.Group();
 function table(cx, withBox) {
-  rbox(1.3, 0.07, 0.8, 0xe6d3b3, cx, 0.78, 1.1, lunch, 0.03);
-  for (const [dx, dz] of [[-0.55, -0.32], [0.55, -0.32], [-0.55, 0.32], [0.55, 0.32]]) cyl(0.035, 0.035, 0.75, 0x6b4a35, cx + dx, 0.375, 1.1 + dz, lunch);
+  rbox(1.3, 0.07, 0.8, 0xcdb18a, cx, 0.78, 1.1, lunch, 0.012, { roughness: 0.5 });
+  for (const [dx, dz] of [[-0.55, -0.32], [0.55, -0.32], [-0.55, 0.32], [0.55, 0.32]]) cyl(0.025, 0.025, 0.75, 0x2b2f33, cx + dx, 0.375, 1.1 + dz, lunch, STEEL);
   if (withBox) {
     // 열어 둔 스테인리스 도시락통 (밥 + 반찬 두 가지) + 뚜껑 + 젓가락
     const x = cx - 0.2, z = 1.05;
@@ -1171,7 +1183,7 @@ function table(cx, withBox) {
     sph(1, 0xd9803a, x + 0.08, 0.918, z - 0.06, lunch, [0.06, 0.035, 0.05]);
     sph(1, 0x5aa05a, x + 0.08, 0.918, z + 0.06, lunch, [0.05, 0.035, 0.045]);
     rbox(0.012, 0.07, 0.24, 0x9aa1a6, x + 0.0, 0.9, z, lunch, 0.005);
-    const lid = rbox(0.4, 0.035, 0.28, 0x2f7f79, cx + 0.28, 0.85, 1.0, lunch, 0.04);
+    const lid = rbox(0.4, 0.035, 0.28, 0x3d4349, cx + 0.28, 0.85, 1.0, lunch, 0.02);
     lid.rotation.z = 0.12; lid.rotation.y = -0.25;
     for (const dz of [0.22, 0.245]) cyl(0.006, 0.006, 0.26, 0x8a5a3b, x, 0.826, 1.1 + dz, lunch).rotation.z = Math.PI / 2;
     rbox(0.14, 0.1, 0.12, 0xe0a14a, cx + 0.5, 0.865, 1.3, lunch, 0.05);      // 보온 가방
@@ -1181,27 +1193,27 @@ function table(cx, withBox) {
   }
   cyl(0.05, 0.045, 0.1, 0xffffff, cx + 0.35, 0.9, 1.05, lunch);
   for (const dz of [-0.78, 0.78]) {
-    const col = dz < 0 ? 0x2f7f79 : 0xe0a14a;
+    const col = dz < 0 ? 0x3d4349 : 0x575e65;
     cyl(0.25, 0.25, 0.06, col, cx, 0.46, 1.1 + dz, lunch);
-    cyl(0.035, 0.035, 0.43, 0x6b4a35, cx, 0.23, 1.1 + dz, lunch);
-    cyl(0.18, 0.2, 0.03, 0x4b3326, cx, 0.015, 1.1 + dz, lunch);
+    cyl(0.03, 0.03, 0.43, 0x9aa1a6, cx, 0.23, 1.1 + dz, lunch, STEEL);
+    cyl(0.18, 0.2, 0.03, 0x2b2f33, cx, 0.015, 1.1 + dz, lunch);
     rbox(0.42, 0.36, 0.05, col, cx, 0.7, 1.1 + dz * 1.27, lunch, 0.05);
   }
 }
 table(1.2, false); table(3.4, true);
-const rug = cyl(2.9, 2.9, 0.02, 0xe6d6c1, 2.3, 0.01, 1.1, scene);
+const rug = cyl(2.9, 2.9, 0.02, 0xcfc9be, 2.3, 0.012, 1.1, scene);
 rug.scale.set(1.0, 1, 0.55);
 makeInteractive(lunch, 'lunch', '점심 테이블 · 오늘 뭐 먹지');
 
 /* ---------- 장식 ---------- */
 // 화분
-cyl(0.26, 0.2, 0.42, 0xc9784a, 4.4, 0.21, 3.1);
+cyl(0.26, 0.2, 0.42, 0xe3dfd6, 4.4, 0.21, 3.1);
 [[0, 0.75, 0, 0.3], [0.15, 0.95, 0.05, 0.22], [-0.15, 0.9, -0.05, 0.22], [0.02, 1.15, 0.0, 0.2]].forEach(([dx, y, dz, r]) => sph(r, 0x4f9a56, 4.4 + dx, y, 3.1 + dz));
 // 쓰레기통 3종 (일반 / 재활용 / 음식물): 눌러서 분리배출 게임
 const bins = new THREE.Group();
-cyl(0.22, 0.2, 0.52, 0x8a9096, 3.7, 0.26, CZ + 0.05, bins);
-cyl(0.22, 0.2, 0.52, 0x4a7bbf, 4.2, 0.26, CZ + 0.05, bins);
-cyl(0.17, 0.15, 0.4, 0x6fae6a, 4.65, 0.2, CZ + 0.05, bins);
+cyl(0.22, 0.2, 0.52, 0x8a9096, 3.7, 0.26, CZ + 0.05, bins, STEEL);
+cyl(0.22, 0.2, 0.52, 0x56708f, 4.2, 0.26, CZ + 0.05, bins);
+cyl(0.17, 0.15, 0.4, 0x5f7d5a, 4.65, 0.2, CZ + 0.05, bins);
 cyl(0.222, 0.222, 0.03, 0xe3e6e8, 3.7, 0.5, CZ + 0.05, bins);
 cyl(0.222, 0.222, 0.03, 0xe3e6e8, 4.2, 0.5, CZ + 0.05, bins);
 cyl(0.172, 0.172, 0.03, 0xe3e6e8, 4.65, 0.4, CZ + 0.05, bins);
