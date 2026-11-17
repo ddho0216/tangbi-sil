@@ -34,12 +34,13 @@ const ENV_TEX = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment
 
 const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(2.5, 1.3, 0.8);
-controls.enableDamping = true;
+controls.enableDamping = true; controls.dampingFactor = 0.08; controls.rotateSpeed = 0.75; controls.panSpeed = 1.3; controls.screenSpacePanning = true;
+controls.mouseButtons = { LEFT: THREE.MOUSE.ROTATE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.PAN };
 controls.maxPolarAngle = Math.PI / 2.05;
 controls.minDistance = 0.6;
 controls.maxDistance = 32;
-controls.minAzimuthAngle = -0.15;
-controls.maxAzimuthAngle = Math.PI / 2 + 0.15;
+controls.minAzimuthAngle = -0.6;
+controls.maxAzimuthAngle = Math.PI / 2 + 0.6;
 
 const hemi = new THREE.HemisphereLight(0xfff4e4, 0xb8a98c, 1.2);
 scene.add(hemi);
@@ -2765,7 +2766,7 @@ function exitFps() {
   camera.fov = 48; camera.updateProjectionMatrix();
   fpsShell.visible = false;
   camera.position.copy(fps.saved.pos); controls.target.copy(fps.saved.target);
-  controls.enabled = true; controls.minAzimuthAngle = -0.15; controls.maxAzimuthAngle = Math.PI / 2 + 0.15; controls.maxPolarAngle = Math.PI / 2.05;
+  controls.enabled = true; controls.minAzimuthAngle = -0.6; controls.maxAzimuthAngle = Math.PI / 2 + 0.6; controls.maxPolarAngle = Math.PI / 2.05;
   fpsBtn.textContent = '1인칭'; crossEl.style.display = 'none'; dpadEl.style.display = 'none'; hintEl.innerHTML = HINT_ORBIT;
   labelEl.style.display = 'none';
   controls.update();
@@ -3092,6 +3093,47 @@ function endFocus() {
   focusActive = false;
   if (homeCam) flyTo(homeCam.pos, homeCam.target);
 }
+/* ---------- 둘러보기: 부드러운 확대, 방향키로 옆으로 이동, 이동 범위 ---------- */
+let zoomGoal = null;
+const panKeys = {}, panVel = new THREE.Vector3();
+const orbitFree = () => !fps.on && !focusActive && !camAnim && !currentApp;
+renderer.domElement.addEventListener('wheel', ev => {                       // 휠은 한 칸씩 툭툭 끊기지 않고 미끄러지듯 확대/축소
+  if (!orbitFree()) return;
+  ev.preventDefault(); ev.stopImmediatePropagation();
+  const d = camera.position.distanceTo(controls.target), dy = Math.max(-300, Math.min(300, ev.deltaY));
+  zoomGoal = Math.min(controls.maxDistance, Math.max(controls.minDistance, (zoomGoal ?? d) * Math.exp(dy * 0.0013)));
+}, { capture: true, passive: false });
+const PAN_KEYS = { w: 'f', arrowup: 'f', s: 'b', arrowdown: 'b', a: 'l', arrowleft: 'l', d: 'r', arrowright: 'r', q: 'ql', e: 'qr' };
+addEventListener('keydown', ev => {
+  if (!orbitFree() || ev.ctrlKey || ev.metaKey || ev.altKey) return;
+  const tag = (document.activeElement && document.activeElement.tagName) || '';
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+  const k = PAN_KEYS[ev.key.toLowerCase()]; if (k) { panKeys[k] = true; ev.preventDefault(); }
+});
+addEventListener('keyup', ev => { const k = PAN_KEYS[ev.key.toLowerCase()]; if (k) panKeys[k] = false; });
+addEventListener('blur', () => { for (const k in panKeys) panKeys[k] = false; });
+const _dir = new THREE.Vector3(), _right = new THREE.Vector3(), _off = new THREE.Vector3();
+function orbitSmooth(dt) {
+  if (!orbitFree()) { zoomGoal = null; for (const k in panKeys) panKeys[k] = false; panVel.set(0, 0, 0); return; }
+  dt = Math.min(dt, 0.05);
+  if (zoomGoal !== null) {
+    _off.copy(camera.position).sub(controls.target);
+    const d = _off.length(), nd = d + (zoomGoal - d) * (1 - Math.exp(-dt * 8));
+    camera.position.copy(controls.target).add(_off.setLength(nd));
+    if (Math.abs(zoomGoal - nd) < 0.004) zoomGoal = null;
+  }
+  const f = (panKeys.f ? 1 : 0) - (panKeys.b ? 1 : 0), r = (panKeys.r ? 1 : 0) - (panKeys.l ? 1 : 0);
+  camera.getWorldDirection(_dir); _dir.y = 0; if (_dir.lengthSq() < 1e-4) _dir.set(0, 0, -1); _dir.normalize();
+  _right.set(-_dir.z, 0, _dir.x);
+  const sp = Math.max(2.2, camera.position.distanceTo(controls.target) * 0.6);
+  const want = _dir.multiplyScalar(f * sp).addScaledVector(_right, r * sp);
+  panVel.lerp(want, 1 - Math.exp(-dt * 7));
+  if (panVel.lengthSq() > 1e-6) { _off.copy(panVel).multiplyScalar(dt); camera.position.add(_off); controls.target.add(_off); }
+  const q = (panKeys.qr ? 1 : 0) - (panKeys.ql ? 1 : 0);
+  if (q) { _off.copy(camera.position).sub(controls.target).applyAxisAngle(new THREE.Vector3(0, 1, 0), -q * dt * 1.0); camera.position.copy(controls.target).add(_off); }
+  const t = controls.target, cx = Math.min(X1, Math.max(X0, t.x)), cz = Math.min(Z1, Math.max(Z0, t.z)), cy = Math.min(3.2, Math.max(0.1, t.y));
+  if (cx !== t.x || cz !== t.z || cy !== t.y) { _off.set(cx - t.x, cy - t.y, cz - t.z); camera.position.add(_off); t.set(cx, cy, cz); }   // 방 밖으로는 못 나간다
+}
 renderer.setAnimationLoop(() => {
   if (camAnim) {
     const k = Math.min(1, (performance.now() - camAnim.t0) / camAnim.ms);
@@ -3114,7 +3156,7 @@ renderer.setAnimationLoop(() => {
     b.position.y += (goal - b.position.y) * kBread;
   });
   tickWorld(dt);
-  if (fps.on && !focusActive && !camAnim) fpsStep(dt); else controls.update();
+  if (fps.on && !focusActive && !camAnim) fpsStep(dt); else { orbitSmooth(dt); controls.update(); }
   tickTimers(); renderer.render(scene, camera);
 });
 
