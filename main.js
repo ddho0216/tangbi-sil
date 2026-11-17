@@ -707,12 +707,12 @@ function suggestions() {
 function renderBoardNotes() {
   boardNotes.forEach(g => { board.remove(g); disposeObj(g); });
   boardNotes.length = 0; itemTargets.board = []; hoverItem = null;
-  const all = suggestions(), shown = all.slice(-9), off = all.length - shown.length;
+  const all = suggestions(), shown = all.slice(-12), off = all.length - shown.length;
   shown.forEach((text, i) => {
     const g = newItem(board, 'note', off + i); g.userData.axis = 'z';          // 게시판 앞쪽(+z)으로 당겨서 본다
-    g.position.set(-0.55 + (i % 3) * 0.55, 0.28 - Math.floor(i / 3) * 0.42, 0.055);
+    g.position.set(-0.66 + (i % 4) * 0.44, 0.3 - Math.floor(i / 4) * 0.36, 0.055);
     g.rotation.z = ((i * 37) % 11 - 5) * 0.025;
-    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.45, 0.4), new THREE.MeshStandardMaterial({ map: textTexture(wrap(text), NOTE_COLORS[i % 5], '#2b2620', 160, 144, 38) }));
+    const m = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 0.27), new THREE.MeshStandardMaterial({ map: textTexture(wrap(text), NOTE_COLORS[i % 5], '#2b2620', 160, 144, 38) }));
     g.add(m); m.userData.owner = board;
     finishItem(g, itemTargets.board);
     boardNotes.push(g);
@@ -1069,21 +1069,105 @@ function dripTick() {
   });
 }
 
+/* ---------- 선반 (정수기·종이컵·컵라면·햇반) ---------- */
+const rack = new THREE.Group();
+const SHELF_Y = [0.4, 1.0, 1.6, 2.2];
+[[-0.82, -0.2], [0.82, -0.2], [-0.82, 0.2], [0.82, 0.2]].forEach(([x, z]) => rbox(0.035, 2.35, 0.035, 0x2f3438, x, 1.175, z, rack, 0.008, STEEL));
+SHELF_Y.forEach(y => rbox(1.7, 0.03, 0.44, 0xcdb18a, 0, y - 0.015, 0, rack, 0.008, { roughness: 0.5 }));
+rbox(1.7, 0.03, 0.44, 0xcdb18a, 0, 0.1, 0, rack, 0.008);
+rack.position.set(-3.9, 0, -3.66);
+const rackItems = new THREE.Group(); rack.add(rackItems);
+makeInteractive(rack, 'pantry', '컵라면 · 햇반 선반 · 눌러서 꺼내기');
+const PANTRY = [{ k: 'shin', n: '신라면' }, { k: 'bul', n: '불닭볶음면' }, { k: 'jjam', n: '오징어짬뽕' }, { k: 'hat', n: '햇반' }];
+const getPantry = () => ({ shin: 6, bul: 5, jjam: 5, hat: 8, ...store.get('pantry', {}) });
+// 제품 포장 느낌으로 그린 그림 (실제 사진이 아니다)
+const cupTex = {}, cupLid = {};
+function cupSide(i) {
+  if (cupTex[i]) return cupTex[i];
+  const t = canvasTex(512, 160, (g, w, h) => {
+    const F = 'bold 54px "Apple SD Gothic Neo","Noto Sans KR",sans-serif';
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    if (i === 0) {                       // 신라면: 빨간 바탕 + 큰 辛
+      g.fillStyle = '#d3141c'; g.fillRect(0, 0, w, h); g.fillStyle = '#9d0d14'; g.fillRect(0, 128, w, 32);
+      g.fillStyle = '#ffffff'; g.font = 'bold 120px serif'; g.fillText('辛', 256, 62); g.font = F; g.fillText('신라면', 256, 138);
+    } else if (i === 1) {                // 불닭볶음면: 검정 + 불꽃
+      g.fillStyle = '#17171a'; g.fillRect(0, 0, w, h); g.fillStyle = '#e0301e';
+      g.beginPath(); g.moveTo(256, 4); g.quadraticCurveTo(318, 56, 286, 98); g.quadraticCurveTo(256, 70, 226, 98); g.quadraticCurveTo(194, 56, 256, 4); g.fill();
+      g.fillStyle = '#ffd24a'; g.beginPath(); g.moveTo(256, 44); g.quadraticCurveTo(282, 72, 256, 96); g.quadraticCurveTo(230, 72, 256, 44); g.fill();
+      g.fillStyle = '#ffffff'; g.font = 'bold 44px "Apple SD Gothic Neo","Noto Sans KR",sans-serif'; g.fillText('불닭볶음면', 256, 134);
+    } else {                             // 오징어짬뽕: 진한 주황 + 오징어
+      g.fillStyle = '#c63a1c'; g.fillRect(0, 0, w, h); g.fillStyle = '#f2e3c2'; g.beginPath(); g.ellipse(256, 54, 40, 30, 0, 0, 7); g.fill();
+      g.fillStyle = '#e8c79a'; for (let k = -2; k <= 2; k++) { g.beginPath(); g.ellipse(256 + k * 14, 92, 5, 14, 0, 0, 7); g.fill(); }
+      g.fillStyle = '#ffffff'; g.font = 'bold 40px "Apple SD Gothic Neo","Noto Sans KR",sans-serif'; g.fillText('오징어짬뽕', 256, 136);
+    }
+  });
+  t.repeat.set(1, 1); t.wrapS = THREE.ClampToEdgeWrapping; cupTex[i] = t; return t;
+}
+function makeCupRamen(i) {
+  const side = new THREE.MeshStandardMaterial({ map: cupSide(i), roughness: 0.55 });
+  const lid = new THREE.MeshStandardMaterial({ color: [0xd3141c, 0x17171a, 0xc63a1c][i], roughness: 0.4, metalness: 0.2 });
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(0.052, 0.038, 0.12, 28), [side, lid, new THREE.MeshStandardMaterial({ color: 0xeeeeee })]);
+  m.rotation.y = Math.PI; m.castShadow = true; m.receiveShadow = true;
+  const rim = new THREE.Mesh(new THREE.CylinderGeometry(0.055, 0.055, 0.008, 28), new THREE.MeshStandardMaterial({ color: 0xe9e9e9, roughness: 0.4, metalness: 0.4, envMap: ENV_TEX }));
+  rim.position.y = 0.06; m.add(rim);
+  return m;
+}
+let hatTex = null;
+function makeHatban() {
+  if (!hatTex) hatTex = canvasTex(256, 200, (g, w, h) => {
+    g.fillStyle = '#fbf7ee'; g.fillRect(0, 0, w, h); g.fillStyle = '#e8412d'; g.fillRect(0, 0, w, 36); g.fillRect(0, h - 22, w, 22);
+    g.fillStyle = '#ffffff'; g.font = 'bold 24px "Apple SD Gothic Neo","Noto Sans KR",sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('CJ', 128, 20);
+    g.fillStyle = '#e8412d'; g.font = 'bold 74px "Apple SD Gothic Neo","Noto Sans KR",sans-serif'; g.fillText('햇반', 128, 98);
+    g.fillStyle = '#f2c14e'; g.beginPath(); g.ellipse(128, 160, 62, 20, 0, 0, 7); g.fill(); g.fillStyle = '#ffffff'; g.beginPath(); g.ellipse(128, 154, 52, 14, 0, 0, 7); g.fill();
+  });
+  const side = new THREE.MeshStandardMaterial({ color: 0xf1ece0, roughness: 0.6 });
+  const m = new THREE.Mesh(new THREE.BoxGeometry(0.145, 0.052, 0.115), [side, side, new THREE.MeshStandardMaterial({ map: hatTex, roughness: 0.5 }), side, side, side]);
+  m.castShadow = true; m.receiveShadow = true; return m;
+}
+function refreshPantry() {
+  rackItems.children.slice().forEach(c => { rackItems.remove(c); disposeObj(c); });
+  const q = getPantry();
+  for (let b = 0; b < 3; b++) {                                   // 컵라면 (3번째 선반)
+    for (let k = 0; k < Math.min(8, q[PANTRY[b].k]); k++) {
+      const c = makeCupRamen(b);
+      c.position.set(-0.55 + b * 0.55 + ((k % 4) - 1.5) * 0.115, SHELF_Y[2] + 0.06, k < 4 ? 0.1 : -0.08);
+      rackItems.add(c);
+    }
+  }
+  for (let k = 0; k < Math.min(16, q.hat); k++) {                  // 햇반 (맨 위 선반, 8개 넘으면 2층)
+    const h = makeHatban(), slot = k % 8, layer = Math.floor(k / 8);
+    h.position.set(-0.55 + (slot % 4) * 0.17, SHELF_Y[3] + 0.026 + layer * 0.052, slot < 4 ? 0.1 : -0.08);
+    rackItems.add(h);
+  }
+  rbox(0.5, 0.3, 0.36, 0xb08a5a, -0.4, SHELF_Y[0] + 0.15, 0, rackItems, 0.01);        // 맨 아래: 박스째 쌓아 둔 재고
+  rbox(0.505, 0.04, 0.12, 0xd8c39a, -0.4, SHELF_Y[0] + 0.3, 0, rackItems, 0.005);
+  rbox(0.4, 0.22, 0.36, 0xb08a5a, 0.35, SHELF_Y[0] + 0.11, 0, rackItems, 0.01);
+  rackItems.traverse(o => { if (o.isMesh) o.userData.owner = rack; });
+}
+refreshPantry();
+rack.traverse(o => { if (o.isMesh) o.userData.owner = rack; });
+
 /* ---------- 정수기 + 종이컵 ---------- */
 const purifier = new THREE.Group();
-rbox(0.36, 1.0, 0.4, 0xeeeeec, 0, 0.5, 0, purifier, 0.03);
-rbox(0.37, 0.04, 0.41, 0x9aa1a6, 0, 0.99, 0, purifier, 0.015, STEEL);
-rbox(0.3, 0.2, 0.03, 0xdfe7ea, 0, 0.8, 0.2, purifier, 0.03);
-for (const [x, c] of [[-0.09, 0x4aa3e8], [0, 0xbfe6f5], [0.09, 0xe86f6f]]) {
-  cyl(0.022, 0.022, 0.02, c, x, 0.83, 0.22, purifier, { emissive: c, emissiveIntensity: 0.25 }).rotation.x = Math.PI / 2;
-}
-cyl(0.018, 0.018, 0.08, 0x4aa3e8, -0.05, 0.68, 0.22, purifier);                    // 냉수 꼭지
-cyl(0.018, 0.018, 0.08, 0xe86f6f, 0.05, 0.68, 0.22, purifier);                     // 온수 꼭지
-rbox(0.26, 0.24, 0.12, 0xcbd5d9, 0, 0.5, 0.15, purifier, 0.04);                    // 컵 놓는 곳
-rbox(0.28, 0.02, 0.16, 0x9aa1a6, 0, 0.375, 0.2, purifier, 0.008, CHROME);          // 물받이
-rbox(0.3, 0.3, 0.03, 0xdfe7ea, 0, 0.17, 0.2, purifier, 0.03);
-purifier.position.set(3.2, 0, -3.55);
-const purifierStream = cyl(0.007, 0.007, 0.2, 0x6fc3f0, 0, 0.58, 0.22, purifier, { transparent: true, opacity: 0.8 });
+const PW = { roughness: 0.28 };
+rbox(0.26, 0.4, 0.26, 0xf4f4f2, 0, 0.2, -0.07, purifier, 0.02, PW);                 // 뒤쪽 본체
+rbox(0.26, 0.14, 0.4, 0xf7f7f5, 0, 0.33, 0, purifier, 0.02, PW);                    // 윗부분(조작부)
+const purPanel = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.1), new THREE.MeshBasicMaterial({ map: canvasTex(220, 100, (g, w, h) => {
+  g.fillStyle = '#f7f7f5'; g.fillRect(0, 0, w, h);
+  g.fillStyle = '#0b0d0f'; g.fillRect(52, 8, 116, 42);
+  g.fillStyle = '#ffffff'; g.font = 'bold 28px sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('120ml', 120, 30); g.font = '14px sans-serif'; g.fillText('❄', 66, 20);
+  g.strokeStyle = '#c9ced1'; g.lineWidth = 2;
+  [30, 70, 150, 190].forEach(x => { g.beginPath(); g.arc(x, 66, 6, 0, 7); g.stroke(); });
+  g.strokeStyle = '#7fd6e6'; g.lineWidth = 3; g.beginPath(); g.arc(110, 80, 10, 0, 7); g.stroke();
+}) }));
+purPanel.position.set(0, 0.335, 0.2015); purifier.add(purPanel);
+rbox(0.2, 0.012, 0.03, 0xe5e7e8, 0, 0.262, 0.185, purifier, 0.004);                  // 취출구 받침
+cyl(0.014, 0.014, 0.03, CHROME_C, 0, 0.247, 0.175, purifier, CHROME);                // 물 나오는 곳
+rbox(0.1, 0.006, 0.1, 0xffffff, 0, 0.258, 0.15, purifier, 0.003, { emissive: 0xbfeaff, emissiveIntensity: 0.9 });   // 아래로 비추는 불빛
+rbox(0.26, 0.02, 0.22, 0xf0f0ee, 0, 0.012, 0.1, purifier, 0.008, PW);                // 물받이 트레이
+rbox(0.2, 0.004, 0.13, 0xd9dcde, 0, 0.024, 0.1, purifier, 0.002);
+purifier.position.set(-3.45, 1.015, -3.66);
+const purifierStream = cyl(0.007, 0.007, 0.16, 0x6fc3f0, 0, 0.16, 0.175, purifier, { transparent: true, opacity: 0.8 });
 purifierStream.visible = false;
 makeInteractive(purifier, 'purifier', '정수기');
 
@@ -1093,7 +1177,7 @@ rbox(0.12, 0.05, 0.05, CHROME_C, 0, 0.23, 0.0, cupDisp, 0.015, CHROME);
 rbox(0.12, 0.05, 0.05, CHROME_C, 0, -0.2, 0.0, cupDisp, 0.015, CHROME);
 const cupStack = new THREE.Group();
 cupDisp.add(cupStack);
-cupDisp.position.set(3.2, 1.32, -3.82);
+cupDisp.position.set(-4.22, 1.235, -3.66);   // 선반 위
 makeInteractive(cupDisp, 'cups', '종이컵');
 const getPaperCups = () => store.get('paperCups', 24);
 function refreshCups() {
@@ -1210,15 +1294,42 @@ cyl(0.26, 0.2, 0.42, 0xe3dfd6, 4.4, 0.21, 3.1);
 [[0, 0.75, 0, 0.3], [0.15, 0.95, 0.05, 0.22], [-0.15, 0.9, -0.05, 0.22], [0.02, 1.15, 0.0, 0.2]].forEach(([dx, y, dz, r]) => sph(r, 0x4f9a56, 4.4 + dx, y, 3.1 + dz));
 // 쓰레기통 3종 (일반 / 재활용 / 음식물): 눌러서 분리배출 게임
 const bins = new THREE.Group();
-cyl(0.22, 0.2, 0.52, 0x8a9096, 3.7, 0.26, CZ + 0.05, bins, STEEL);
-cyl(0.22, 0.2, 0.52, 0x56708f, 4.2, 0.26, CZ + 0.05, bins);
-cyl(0.17, 0.15, 0.4, 0x5f7d5a, 4.65, 0.2, CZ + 0.05, bins);
-cyl(0.222, 0.222, 0.03, 0xe3e6e8, 3.7, 0.5, CZ + 0.05, bins);
-cyl(0.222, 0.222, 0.03, 0xe3e6e8, 4.2, 0.5, CZ + 0.05, bins);
-cyl(0.172, 0.172, 0.03, 0xe3e6e8, 4.65, 0.4, CZ + 0.05, bins);
+const BZ = -3.72;
+// 센서형 사각 쓰레기통 (스테인리스/화이트 본체 + 검은 뚜껑과 슬라이드 덮개)
+function sensorBin(cx, w, d, h, body, steel) {
+  const bo = steel ? STEEL : { roughness: 0.3 };
+  rbox(w, h - 0.1, d, body, cx, 0.05 + (h - 0.1) / 2, BZ, bins, 0.01, bo);
+  rbox(w - 0.02, 0.05, d - 0.02, 0x1b1d1f, cx, 0.025, BZ, bins, 0.008);                       // 검은 받침
+  rbox(w + 0.012, 0.075, d + 0.012, steel ? 0x3a3f44 : 0xf2f2f0, cx, h - 0.075, BZ, bins, 0.008, { roughness: 0.3 });   // 윗부분
+  rbox(w + 0.02, 0.035, d + 0.02, 0x15171a, cx, h - 0.0175, BZ, bins, 0.008, { roughness: 0.35 });                   // 뚜껑
+  rbox(w * 0.64, 0.014, d * 0.9, 0x24272b, cx + w * 0.1, h + 0.006, BZ, bins, 0.006, { roughness: 0.25 });          // 슬라이드 덮개
+  [-0.02, 0, 0.02].forEach(dx => rbox(0.008, 0.008, 0.004, 0x9fe8ff, cx - w * 0.25 + dx, h - 0.075, BZ + d / 2 + 0.008, bins, 0.002, { emissive: 0x6fd0ff, emissiveIntensity: 0.9 }));   // 센서 불빛
+}
+// 분리수거함 (캔 / 종이 / 재활용): 연회색 본체 + 회색 뚜껑 + 색깔 표지
+function recycleBin(cx, color, en, ko, kind) {
+  const w = 0.38, d = 0.3, h = 0.72;
+  rbox(w, h - 0.1, d, 0xdcdedf, cx, 0.07 + (h - 0.1) / 2, BZ, bins, 0.012, { roughness: 0.45 });
+  rbox(w + 0.02, 0.05, d + 0.02, 0x6b7075, cx, 0.025, BZ, bins, 0.012);
+  rbox(w + 0.025, 0.09, d + 0.025, 0x5d6368, cx, h - 0.045, BZ, bins, 0.015);                  // 뚜껑
+  rbox(w * 0.7, 0.014, d * 0.6, 0x4a5055, cx, h + 0.003, BZ, bins, 0.006);
+  const lab = new THREE.Mesh(new THREE.PlaneGeometry(0.22, 0.26), new THREE.MeshStandardMaterial({ roughness: 0.6, map: canvasTex(176, 208, (g, W, H) => {
+    g.fillStyle = '#f4efe2'; g.fillRect(0, 0, W, H); g.strokeStyle = color; g.lineWidth = 10; g.strokeRect(5, 5, W - 10, H - 10);
+    g.strokeStyle = color; g.fillStyle = color; g.lineWidth = 6; g.textAlign = 'center';
+    if (kind === 'can') { g.strokeRect(62, 36, 52, 76); g.beginPath(); g.ellipse(88, 36, 26, 8, 0, 0, 7); g.stroke(); }
+    else if (kind === 'paper') { g.strokeRect(58, 40, 60, 66); g.beginPath(); g.moveTo(58, 62); g.lineTo(118, 62); g.stroke(); }
+    else { for (let k = 0; k < 3; k++) { g.beginPath(); g.arc(88 + Math.cos(k * 2.094 - 1.57) * 28, 74 + Math.sin(k * 2.094 - 1.57) * 28, 14, 0, 7); g.stroke(); } }
+    g.font = 'bold 26px "Apple SD Gothic Neo","Noto Sans KR",sans-serif'; g.fillText(ko, 88, 148); g.font = '18px sans-serif'; g.fillText(en, 88, 178);
+  }) }));
+  lab.position.set(cx, 0.46, BZ + d / 2 + 0.003); bins.add(lab);
+}
+sensorBin(3.42, 0.32, 0.26, 0.68, 0xb9bec2, true);          // 일반 쓰레기
+sensorBin(3.84, 0.32, 0.26, 0.56, 0xf4f4f2, false);         // 음식물
+recycleBin(4.4, '#e0532b', 'CAN', '캔', 'can');
+recycleBin(4.84, '#e0a92a', 'PAPER', '종이', 'paper');
+recycleBin(5.28, '#2f9a55', 'RECYCLE', '재활용', 'rec');
 const trashPile = new THREE.Group();
 bins.add(trashPile);
-makeInteractive(bins, 'trash', '쓰레기통 · 눌러서 비우기');
+makeInteractive(bins, 'trash', '쓰레기통 · 분리배출하기');
 // 벽시계 (시각을 실제로 따라가고, 눌러서 시간을 바꿀 수 있다)
 const clock = new THREE.Group();
 cyl(0.36, 0.36, 0.05, 0xffffff, 0, 0, 0, clock).rotation.x = Math.PI / 2;
@@ -1641,6 +1752,29 @@ APPS.vending = () => {
 };
 APPS.vending.noPanel = true;
 
+/* ---------- 선반: 컵라면·햇반 꺼내기 ---------- */
+APPS.pantry = () => {
+  beginFocus(new THREE.Vector3(-3.2, 1.6, -1.1), new THREE.Vector3(-3.9, 1.3, -3.66));
+  const bar = () => {
+    const q = getPantry();
+    showBar({
+      title: '컵라면 · 햇반', info: '꺼낼 것을 고르세요 (컵라면은 바로 만들기로 이어져요)',
+      buttons: [...PANTRY.map((p, i) => ['t_' + p.k, `${p.n} ${q[p.k]}개`, i === 0]), ['fill', '모두 +5 채우기']],
+      onButton(act) {
+        if (act === 'fill') { const n = getPantry(); PANTRY.forEach(p => { n[p.k] += 5; }); store.set('pantry', n); refreshPantry(); toast('재고를 채웠습니다'); bar(); return; }
+        const p = PANTRY.find(x => 't_' + x.k === act); if (!p) return;
+        const n = getPantry(); if (n[p.k] <= 0) { toast(`${p.n}이(가) 떨어졌습니다`); return; }
+        n[p.k]--; store.set('pantry', n); refreshPantry();
+        if (p.k === 'hat') { toast(`햇반을 꺼냈습니다 (${n.hat}개 남음) · 전자레인지에서 2분 데우세요`); bar(); }
+        else { toast(`${p.n}을 꺼냈습니다 (${n[p.k]}개 남음)`); closeApp(); startRamen(); }
+      }
+    });
+  };
+  bar(); restoreBar = bar;
+  cleanup = () => { hideBar(); endFocus(); restoreBar = null; };
+};
+APPS.pantry.noPanel = true;
+
 /* ---------- 점심 테이블: 오늘 뭐 먹지 ---------- */
 const MENU_DEFAULT = ['김치찌개', '제육볶음', '돈까스', '비빔밥', '칼국수', '샐러드', '삼각김밥'];
 APPS.lunch = () => {
@@ -1929,14 +2063,8 @@ function refreshSinkPile() {
   sinkPile.traverse(o => { if (o.isMesh) o.userData.owner = sink; });
 }
 // 쓰레기통에 쌓인 쓰레기
-function refreshTrashPile() {
+function refreshTrashPile() {                                // 쓰레기는 통 안에 있어서 겉으로 보이지 않는다 (개수는 왼쪽 위 창에서 확인)
   trashPile.children.slice().forEach(c => { trashPile.remove(c); disposeObj(c); });
-  const cols = [0xf2f2ee, 0xd9c8a0, 0xc9d3d8, 0xe8b9a0, 0xb8c9a0, 0xe9e1d0];
-  for (let i = 0; i < mess.trash; i++) {
-    const m = put(new THREE.Mesh(new THREE.IcosahedronGeometry(0.06 + (i % 3) * 0.008, 0), mat(cols[i % 6])),
-      3.7 + ((i % 3) - 1) * 0.08, 0.54 + Math.floor(i / 3) * 0.07, CZ + 0.05 + ((i % 2) - 0.5) * 0.07, trashPile);
-    m.userData.owner = bins;
-  }
 }
 let wasLow = false;
 function refreshMess() {
@@ -2409,7 +2537,7 @@ fpsShell.visible = false;
 scene.add(fpsShell);
 const FPS_BLOCKS = [[-2.85, 3.05, -4.0, -2.8], [3.0, 4.95, -3.95, -3.1], [-5.0, -3.95, -3.1, -0.8],
   [-4.9, -3.45, -0.75, 0.95], [0.45, 1.95, 0.6, 1.6], [2.65, 4.15, 0.6, 1.6], [4.1, 4.7, 2.8, 3.4],
-  [6.4, 7.6, -3.95, -2.95], [8.85, 9.95, -0.2, 3.3], [8.9, 9.7, -1.6, -0.8]];   // 가구가 차지하는 자리 [x0, x1, z0, z1]
+  [6.4, 7.6, -3.95, -2.95], [8.85, 9.95, -0.2, 3.3], [8.9, 9.7, -1.6, -0.8], [-4.8, -3.0, -3.95, -3.35], [3.2, 5.5, -3.95, -3.4]];   // 가구가 차지하는 자리 [x0, x1, z0, z1]
 function fpsBlocked(x, z) {
   if (x < -4.6 || x > 9.6 || z > 5.6 || z < -3.6) return true;
   return FPS_BLOCKS.some(([x0, x1, z0, z1]) => x > x0 - FPS_R && x < x1 + FPS_R && z > z0 - FPS_R && z < z1 + FPS_R);
@@ -2831,7 +2959,7 @@ if (location.search.includes('debug')) {
     barInfo() { return { shown: ibarEl.style.display, text: ibarEl.textContent, overlayOpen: overlay.classList.contains('open') }; },
     screenOf(id) {
       const g = clickable.find(c => c.userData.id === id);
-      const anchors = { snack: [-1.09, 0.63, -2.98], lunch: [1.2, 0.8, 1.1], vending: [7.0, 1.1, -3.0], sink: [-4.2, 1.05, -1.5], window: [-4.84, 2.4, 2.4], aircon: [-4.78, 3.3, -1.95], clock: [-3.5, 3.1, -3.8], fridge: [-3.5, 0.75, 0.1], freezer: [-3.5, 1.98, 0.1] };
+      const anchors = { snack: [-1.09, 0.63, -2.98], lunch: [1.2, 0.8, 1.1], pantry: [-3.9, 1.6, -3.4], trash: [4.4, 0.4, -3.6], purifier: [-3.45, 1.2, -3.5], vending: [7.0, 1.1, -3.0], sink: [-4.2, 1.05, -1.5], window: [-4.84, 2.4, 2.4], aircon: [-4.78, 3.3, -1.95], clock: [-3.5, 3.1, -3.8], fridge: [-3.5, 0.75, 0.1], freezer: [-3.5, 1.98, 0.1] };
       const v = (anchors[id] ? new THREE.Vector3(...anchors[id]) : new THREE.Box3().setFromObject(g).getCenter(new THREE.Vector3())).project(camera);
       return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight];
     }
