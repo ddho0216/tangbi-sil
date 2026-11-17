@@ -1014,12 +1014,13 @@ ring(0.715, 0.27, 0xe9e7e2, 0.45, 1.05, 0.01);
 ring(0.89, 0.08, 0x3a3d42, 0.5, 1.1, 0.02);                                              // 상판
 HOLES.forEach(([z0, z1, fl]) => {
   const cx = (HX0 + HX1) / 2, cz = (z0 + z1) / 2, bh = TOP - fl;
-  rbox(HX1 - HX0 + 0.05, 0.012, z1 - z0 + 0.05, 0xd5dde1, cx, TOP + 0.002, cz, sink, 0.006, CHROME);   // 테두리 광택
+  [[HX1 - HX0 + 0.05, 0.025, cx, z0 - 0.0125], [HX1 - HX0 + 0.05, 0.025, cx, z1 + 0.0125]].forEach(([w, d, x, z]) => rbox(w, 0.012, d, 0xd5dde1, x, TOP + 0.002, z, sink, 0.004, CHROME));   // 구멍 둘레 스테인리스 테두리 (4개 띠, 가운데는 뚫려 있다)
+  [HX0 - 0.0125, HX1 + 0.0125].forEach(x => rbox(0.025, 0.012, z1 - z0, 0xd5dde1, x, TOP + 0.002, cz, sink, 0.004, CHROME));
   rbox(HX1 - HX0, 0.02, z1 - z0, 0x5f6a71, cx, fl - 0.01, cz, sink, 0.008, CHROME);                  // 바닥
-  rbox(0.014, bh, z1 - z0, 0xd3dadd, HX0 + 0.007, fl + bh / 2, cz, sink, 0.004, CHROME);             // 네 벽
-  rbox(0.014, bh, z1 - z0, 0xd3dadd, HX1 - 0.007, fl + bh / 2, cz, sink, 0.004, CHROME);
-  rbox(HX1 - HX0, bh, 0.014, 0xc2cbcf, cx, fl + bh / 2, z0 + 0.007, sink, 0.004, CHROME);
-  rbox(HX1 - HX0, bh, 0.014, 0xc2cbcf, cx, fl + bh / 2, z1 - 0.007, sink, 0.004, CHROME);
+  rbox(0.014, bh, z1 - z0, 0x9aa3a8, HX0 + 0.007, fl + bh / 2, cz, sink, 0.004, CHROME);             // 네 벽
+  rbox(0.014, bh, z1 - z0, 0x9aa3a8, HX1 - 0.007, fl + bh / 2, cz, sink, 0.004, CHROME);
+  rbox(HX1 - HX0, bh, 0.014, 0x848d92, cx, fl + bh / 2, z0 + 0.007, sink, 0.004, CHROME);
+  rbox(HX1 - HX0, bh, 0.014, 0xaab3b8, cx, fl + bh / 2, z1 - 0.007, sink, 0.004, CHROME);
   cyl(0.03, 0.03, 0.006, 0x4a5156, cx, fl + 0.004, cz, sink, CHROME);                               // 배수구
 });
 const faucetPost = cyl(0.02, 0.02, 0.28, CHROME_C, -0.38, 1.07, -0.65, sink, CHROME);                // 수전
