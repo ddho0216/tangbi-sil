@@ -1354,6 +1354,25 @@ cyl(0.36, 0.4, 0.1, 0xb23a3a, 0, 0.05, 0, xtree);                               
 });
 xtree.position.set(4.4, 0, 3.1);
 scene.add(xtree);
+// 쓰리잘비 슈퍼 빗자루 (왼쪽 벽, 냉장고와 창문 사이에 기대어 세워 둠)
+const COUPANG_BROOM = 'https://link.coupang.com/a/iK1AW9kQyi';
+const broom = new THREE.Group();
+const bw = { roughness: 0.4 };
+cyl(0.011, 0.011, 1.0, 0xf2f2f0, 0, 0.62, 0, broom, bw);                          // 막대
+cyl(0.017, 0.017, 0.24, 0xd9dad8, 0, 1.02, 0, broom, bw);                         // 손잡이
+const hangRing = new THREE.Mesh(new THREE.TorusGeometry(0.018, 0.005, 8, 16), mat(0xd9dad8)); put(hangRing, 0, 1.165, 0, broom); hangRing.rotation.y = Math.PI / 2;
+cyl(0.017, 0.017, 0.07, 0xd9dad8, 0, 0.24, 0, broom, bw);                         // 연결 부분
+const APEX = [0.23, 0];                                                           // [y, z]
+[-0.16, -0.08, 0, 0.08, 0.16].forEach(z => {                                      // 부채꼴 살
+  const dy = 0.04 - APEX[0], dz = z - APEX[1], L = Math.hypot(dy, dz);
+  const r = cyl(0.0055, 0.0055, L, 0xe9e9e6, 0, (APEX[0] + 0.04) / 2, (APEX[1] + z) / 2, broom, bw); r.rotation.x = Math.atan2(dz, dy);
+});
+[[0.1, 0.11], [0.15, 0.055]].forEach(([y, hw]) => { const c = cyl(0.0045, 0.0045, hw * 2, 0xe9e9e6, 0, y, 0, broom, bw); c.rotation.x = Math.PI / 2; });   // 가로 살
+rbox(0.02, 0.022, 0.36, 0xe9e9e6, 0, 0.04, 0, broom, 0.006, bw);                 // 날 받침
+rbox(0.016, 0.03, 0.36, 0x6d7276, 0, 0.015, 0, broom, 0.005, { roughness: 0.75 });  // 회색 고무날
+broom.position.set(-4.6, 0, 1.02);
+broom.rotation.z = 0.24;                                                          // 벽에 기대어 놓았다
+makeInteractive(broom, 'broom', '쓰리잘비 슈퍼 빗자루 · 눌러서 쿠팡 링크 보기');
 // 쓰레기통 3종 (일반 / 재활용 / 음식물): 눌러서 분리배출 게임
 const bins = new THREE.Group();
 const BZ = -3.72;
@@ -1915,6 +1934,20 @@ APPS.kiosk = () => {
   }
   menu();
   cleanup = () => { if (stop) stop(); stop = null; panel.onclick = null; overlay.classList.remove('side'); endFocus(); };
+};
+
+/* ---------- 쓰리잘비 빗자루 (쿠팡 링크) ---------- */
+APPS.broom = () => {
+  beginFocus(new THREE.Vector3(-3.0, 1.0, 1.0), new THREE.Vector3(-4.7, 0.55, 1.02));
+  overlay.classList.add('side');
+  panel.innerHTML = `
+    <button class="close" id="x">닫기</button>
+    <h2>쓰리잘비 1 슈퍼 빗자루 (그레이)</h2>
+    <p class="sub">쿠팡을 추천합니다! 탕비실 한쪽에 기대어 둔 고무날 빗자루예요.</p>
+    <div class="row"><a href="${COUPANG_BROOM}" target="_blank" rel="noopener noreferrer sponsored" style="display:inline-block;padding:10px 16px;border-radius:10px;background:#2f857b;color:#fff;text-decoration:none;font-weight:600">쿠팡에서 보기</a></div>
+    <p class="sub" style="font-size:12px;margin-top:12px">이 링크는 쿠팡 파트너스 활동의 일환으로 일정액의 수수료를 제공받을 수 있습니다.</p>`;
+  panel.onclick = e => { if (e.target.closest('#x')) closeApp(); };
+  cleanup = () => { panel.onclick = null; overlay.classList.remove('side'); endFocus(); };
 };
 
 /* ---------- 선반: 컵라면·햇반 꺼내기 ---------- */
@@ -3124,7 +3157,7 @@ if (location.search.includes('debug')) {
     barInfo() { return { shown: ibarEl.style.display, text: ibarEl.textContent, overlayOpen: overlay.classList.contains('open') }; },
     screenOf(id) {
       const g = clickable.find(c => c.userData.id === id);
-      const anchors = { snack: [-1.09, 0.63, -2.98], lunch: [1.2, 0.8, 1.1], pantry: [-3.9, 1.6, -3.4], trash: [4.4, 0.4, -3.6], purifier: [-3.45, 1.2, -3.5], vending: [7.0, 1.1, -3.0], sink: [-4.2, 1.05, -1.5], window: [-4.84, 2.4, 3.2], aircon: [-4.78, 3.3, -1.95], clock: [-3.5, 3.1, -3.8], fridge: [-3.5, 0.75, 0.1], freezer: [-3.5, 1.98, 0.1] };
+      const anchors = { snack: [-1.09, 0.63, -2.98], lunch: [1.2, 0.8, 1.1], pantry: [-3.9, 1.6, -3.4], broom: [-4.75, 0.6, 1.02], trash: [4.4, 0.4, -3.6], purifier: [-3.45, 1.2, -3.5], vending: [7.0, 1.1, -3.0], sink: [-4.2, 1.05, -1.5], window: [-4.84, 2.4, 3.2], aircon: [-4.78, 3.3, -1.95], clock: [-3.5, 3.1, -3.8], fridge: [-3.5, 0.75, 0.1], freezer: [-3.5, 1.98, 0.1] };
       const v = (anchors[id] ? new THREE.Vector3(...anchors[id]) : new THREE.Box3().setFromObject(g).getCenter(new THREE.Vector3())).project(camera);
       return [(v.x + 1) / 2 * innerWidth, (1 - v.y) / 2 * innerHeight];
     }
