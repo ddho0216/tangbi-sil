@@ -1296,7 +1296,14 @@ setInterval(() => { applyEnv(); drawSky(performance.now() / 1000); }, 30000);
 const lunch = new THREE.Group();
 function table(cx, withBox) {
   rbox(1.3, 0.07, 0.8, 0xcdb18a, cx, 0.78, 1.1, lunch, 0.012, { roughness: 0.5 });
-  for (const [dx, dz] of [[-0.55, -0.32], [0.55, -0.32], [-0.55, 0.32], [0.55, 0.32]]) cyl(0.025, 0.025, 0.75, 0x2b2f33, cx + dx, 0.375, 1.1 + dz, lunch, STEEL);
+  for (const [dx, dz] of [[-0.55, -0.32], [0.55, -0.32], [-0.55, 0.32], [0.55, 0.32]]) {
+    cyl(0.025, 0.025, 0.66, 0x2b2f33, cx + dx, 0.415, 1.1 + dz, lunch, STEEL);                    // 다리
+    rbox(0.05, 0.012, 0.05, 0x2b2f33, cx + dx, 0.082, 1.1 + dz, lunch, 0.004);                    // 바퀴 받침판
+    rbox(0.04, 0.03, 0.012, 0x3a3f44, cx + dx, 0.06, 1.1 + dz, lunch, 0.003);                     // 바퀴 포크
+    cyl(0.03, 0.03, 0.022, 0x1b1d1f, cx + dx, 0.032, 1.1 + dz, lunch).rotation.z = Math.PI / 2;    // 바퀴
+    cyl(0.011, 0.011, 0.03, 0xd5d8db, cx + dx, 0.032, 1.1 + dz, lunch, STEEL).rotation.z = Math.PI / 2;
+  }
+  rbox(1.18, 0.04, 0.03, 0x2b2f33, cx, 0.72, 1.1 - 0.32, lunch, 0.005); rbox(1.18, 0.04, 0.03, 0x2b2f33, cx, 0.72, 1.1 + 0.32, lunch, 0.005);   // 다리를 잇는 보강대
   if (withBox) {
     // 열어 둔 스테인리스 도시락통 (밥 + 반찬 두 가지) + 뚜껑 + 젓가락
     const x = cx - 0.2, z = 1.05;
@@ -3102,6 +3109,7 @@ renderer.domElement.addEventListener('wheel', ev => {                       // �
   ev.preventDefault(); ev.stopImmediatePropagation();
   const d = camera.position.distanceTo(controls.target), dy = Math.max(-300, Math.min(300, ev.deltaY));
   zoomGoal = Math.min(controls.maxDistance, Math.max(controls.minDistance, (zoomGoal ?? d) * Math.exp(dy * 0.0013)));
+  zoomAnchor = groundPoint(ev.clientX, ev.clientY, controls.target.y);          // 마우스가 가리킨 곳을 향해 확대한다
 }, { capture: true, passive: false });
 const PAN_KEYS = { w: 'f', arrowup: 'f', s: 'b', arrowdown: 'b', a: 'l', arrowleft: 'l', d: 'r', arrowright: 'r', q: 'ql', e: 'qr' };
 addEventListener('keydown', ev => {
@@ -3113,14 +3121,27 @@ addEventListener('keydown', ev => {
 addEventListener('keyup', ev => { const k = PAN_KEYS[ev.key.toLowerCase()]; if (k) panKeys[k] = false; });
 addEventListener('blur', () => { for (const k in panKeys) panKeys[k] = false; });
 const _dir = new THREE.Vector3(), _right = new THREE.Vector3(), _off = new THREE.Vector3();
+let zoomAnchor = null;
+const _ray = new THREE.Raycaster(), _pt = new THREE.Vector2(), _pl = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+function groundPoint(cx, cy, y) {                                       // 화면의 한 점이 가리키는, 높이 y인 바닥면 위의 점
+  const r = renderer.domElement.getBoundingClientRect();
+  _pt.set((cx - r.left) / r.width * 2 - 1, -((cy - r.top) / r.height) * 2 + 1);
+  _ray.setFromCamera(_pt, camera); _pl.constant = -y;
+  const out = new THREE.Vector3(); return _ray.ray.intersectPlane(_pl, out) ? out : null;
+}
+function zoomAbout(anchor, ratio) {                                    // 가리킨 점이 화면에서 제자리에 있도록 확대/축소
+  _off.copy(camera.position).sub(anchor).multiplyScalar(ratio); camera.position.copy(anchor).add(_off);
+  _off.copy(controls.target).sub(anchor).multiplyScalar(ratio); controls.target.copy(anchor).add(_off);
+}
 function orbitSmooth(dt) {
-  if (!orbitFree()) { zoomGoal = null; for (const k in panKeys) panKeys[k] = false; panVel.set(0, 0, 0); return; }
+  if (modeBtn) modeBtn.style.display = orbitFree() ? 'block' : 'none';
+  if (!orbitFree()) { zoomGoal = null; zoomAnchor = null; for (const k in panKeys) panKeys[k] = false; panVel.set(0, 0, 0); return; }
   dt = Math.min(dt, 0.05);
   if (zoomGoal !== null) {
-    _off.copy(camera.position).sub(controls.target);
-    const d = _off.length(), nd = d + (zoomGoal - d) * (1 - Math.exp(-dt * 8));
-    camera.position.copy(controls.target).add(_off.setLength(nd));
-    if (Math.abs(zoomGoal - nd) < 0.004) zoomGoal = null;
+    const d = camera.position.distanceTo(controls.target), nd = d + (zoomGoal - d) * (1 - Math.exp(-dt * 8));
+    if (zoomAnchor) zoomAbout(zoomAnchor, nd / d);
+    else { _off.copy(camera.position).sub(controls.target); camera.position.copy(controls.target).add(_off.setLength(nd)); }
+    if (Math.abs(zoomGoal - nd) < 0.004) { zoomGoal = null; zoomAnchor = null; }
   }
   const f = (panKeys.f ? 1 : 0) - (panKeys.b ? 1 : 0), r = (panKeys.r ? 1 : 0) - (panKeys.l ? 1 : 0);
   camera.getWorldDirection(_dir); _dir.y = 0; if (_dir.lengthSq() < 1e-4) _dir.set(0, 0, -1); _dir.normalize();
@@ -3133,6 +3154,39 @@ function orbitSmooth(dt) {
   if (q) { _off.copy(camera.position).sub(controls.target).applyAxisAngle(new THREE.Vector3(0, 1, 0), -q * dt * 1.0); camera.position.copy(controls.target).add(_off); }
   const t = controls.target, cx = Math.min(X1, Math.max(X0, t.x)), cz = Math.min(Z1, Math.max(Z0, t.z)), cy = Math.min(3.2, Math.max(0.1, t.y));
   if (cx !== t.x || cz !== t.z || cy !== t.y) { _off.set(cx - t.x, cy - t.y, cz - t.z); camera.position.add(_off); t.set(cx, cy, cz); }   // 방 밖으로는 못 나간다
+}
+// 폰: 손가락 두 개로 집으면 가운데 점을 기준으로 확대하고, 두 손가락을 함께 끌면 옆으로 이동한다
+controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: -1 };            // 두 손가락은 아래에서 직접 처리
+let pinch = null;
+const tCenter = t => [(t[0].clientX + t[1].clientX) / 2, (t[0].clientY + t[1].clientY) / 2], tDist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+renderer.domElement.addEventListener('touchstart', ev => {
+  if (ev.touches.length === 2 && orbitFree()) { const [cx, cy] = tCenter(ev.touches); pinch = { d: tDist(ev.touches), cx, cy }; zoomGoal = null; zoomAnchor = null; } else pinch = null;
+}, { passive: true });
+renderer.domElement.addEventListener('touchmove', ev => {
+  if (!pinch || ev.touches.length !== 2 || !orbitFree()) return;
+  ev.preventDefault();
+  const [cx, cy] = tCenter(ev.touches), d = tDist(ev.touches), y = controls.target.y;
+  const a = groundPoint(pinch.cx, pinch.cy, y), b = groundPoint(cx, cy, y);
+  if (a && b) { _off.copy(a).sub(b); camera.position.add(_off); controls.target.add(_off); }      // 두 손가락을 끈 만큼 이동
+  const anchor = groundPoint(cx, cy, y);
+  if (anchor && d > 0 && pinch.d > 0) {
+    const cur = camera.position.distanceTo(controls.target);
+    const ratio = Math.min(controls.maxDistance, Math.max(controls.minDistance, cur * pinch.d / d)) / cur;
+    zoomAbout(anchor, ratio);
+  }
+  pinch.d = d; pinch.cx = cx; pinch.cy = cy;
+}, { passive: false });
+const endPinch = ev => { if (ev.touches.length < 2) pinch = null; };
+renderer.domElement.addEventListener('touchend', endPinch, { passive: true });
+renderer.domElement.addEventListener('touchcancel', endPinch, { passive: true });
+let modeBtn = null;                                                   // 폰에서 한 손가락을 "돌리기"와 "이동" 중에 고르는 버튼
+if (matchMedia('(pointer: coarse)').matches) {
+  modeBtn = document.createElement('button'); modeBtn.id = 'modebtn'; modeBtn.textContent = '한 손가락: 돌리기';
+  modeBtn.addEventListener('click', () => {
+    const pan = controls.touches.ONE === THREE.TOUCH.ROTATE;
+    controls.touches.ONE = pan ? THREE.TOUCH.PAN : THREE.TOUCH.ROTATE; modeBtn.textContent = pan ? '한 손가락: 이동' : '한 손가락: 돌리기';
+  });
+  document.body.appendChild(modeBtn);
 }
 renderer.setAnimationLoop(() => {
   if (camAnim) {
