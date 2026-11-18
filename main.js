@@ -28,8 +28,10 @@ const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
+renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.95;   // 영화 같은 대비
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 stage.appendChild(renderer.domElement);
+document.body.appendChild(Object.assign(document.createElement('div'), { id: 'vig' }));   // 가장자리를 살짝 어둡게
 const ENV_TEX = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;   // 방 안 반사광 (금속·유광이 진짜처럼 보이게)
 
 const controls = new OrbitControls(camera, renderer.domElement);
@@ -42,7 +44,7 @@ controls.maxDistance = 32;
 controls.minAzimuthAngle = -0.6;
 controls.maxAzimuthAngle = Math.PI / 2 + 0.6;
 
-const hemi = new THREE.HemisphereLight(0xfff4e4, 0xb8a98c, 1.2);
+const hemi = new THREE.HemisphereLight(0xfff0dc, 0x8a7a64, 0.55);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xfff3e0, 2.0);
 sun.position.set(9, 11, 9);
@@ -51,6 +53,9 @@ sun.castShadow = true;
 sun.shadow.mapSize.set(3072, 3072); sun.shadow.radius = 4; sun.shadow.bias = -0.0004;
 Object.assign(sun.shadow.camera, { left: -13, right: 13, top: 12, bottom: -12, far: 40 });
 scene.add(sun);
+// 천장 매입등: 방 안을 따뜻하게 비추는 조명 6개 (낮에는 약하게, 밤에는 강하게)
+const ceilLights = [];
+[0.5, 4.5, 8.5].forEach(x => [-0.5, 3.5].forEach(z => { const l = new THREE.PointLight(0xffe2bd, 6, 10, 1.5); l.position.set(x, 3.9, z); scene.add(l); ceilLights.push(l); }));
 
 /* ---------- 도우미 (둥근 모서리 위주로, 각진 느낌을 줄인다) ---------- */
 function mat(color, opts = {}) {
@@ -85,7 +90,7 @@ function canvasTex(w, h, draw, rx = 1, ry = 1) {
 }
 // 바닥: 밝은 오크 마루 (바둑판 모양으로 방향이 번갈아 가는 파케이)
 const parquet = canvasTex(512, 512, (g, S) => {
-  const base = ['#dcc39a', '#d3b788', '#e0caa4', '#d0b080', '#e3cfab'], bs = S / 2;
+  const base = ['#d9ae72', '#cf9f60', '#dfb87d', '#c9985a', '#e2bb83'], bs = S / 2;
   for (let by = 0; by < 2; by++) for (let bx = 0; bx < 2; bx++) {
     const horiz = (bx + by) % 2 === 0;
     for (let k = 0; k < 4; k++) {
@@ -98,16 +103,16 @@ const parquet = canvasTex(512, 512, (g, S) => {
   }
 }, W / 1.6, D / 1.6);
 rbox(W, 0.2, D, 0xcdb48f, RCX, -0.1, RCZ, scene, 0.01);                                    // 바닥 받침
-const floorTop = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshStandardMaterial({ map: parquet, roughness: 0.38, metalness: 0.02 }));
+const floorTop = new THREE.Mesh(new THREE.PlaneGeometry(W, D), new THREE.MeshStandardMaterial({ map: parquet, roughness: 0.28, metalness: 0.02 }));
 floorTop.rotation.x = -Math.PI / 2; floorTop.position.set(RCX, 0.003, RCZ); floorTop.receiveShadow = true; scene.add(floorTop);
-rbox(W, 4.2, 0.2, 0xefebe3, RCX, 2.1, Z0, scene, 0.01);                                    // 뒷벽 (따뜻한 흰색)
-rbox(0.2, 4.2, D, 0xe7e3da, X0, 2.1, RCZ, scene, 0.01);                                    // 왼벽
+rbox(W, 4.2, 0.2, 0xdad7d0, RCX, 2.1, Z0, scene, 0.01);                                    // 뒷벽 (따뜻한 흰색)
+rbox(0.2, 4.2, D, 0xcdcac2, X0, 2.1, RCZ, scene, 0.01);                                    // 왼벽
 rbox(W, 0.12, 0.03, 0xf8f7f4, RCX, 0.06, Z0 + 0.115, scene, 0.005);                        // 걸레받이 (흰색)
 rbox(0.03, 0.12, D, 0xf8f7f4, X0 + 0.115, 0.06, RCZ, scene, 0.005);
 // 카운터 뒤 서브웨이 타일
 const subway = canvasTex(512, 256, (g, w, h) => {
-  g.fillStyle = '#cfcbc3'; g.fillRect(0, 0, w, h);
-  for (let r = 0; r < 4; r++) for (let c = -1; c < 4; c++) { const x = c * 128 + (r % 2 ? 64 : 0); g.fillStyle = r % 2 ? '#f7f6f3' : '#f3f2ee'; g.fillRect(x + 2, r * 64 + 2, 124, 60); g.fillStyle = 'rgba(255,255,255,0.5)'; g.fillRect(x + 2, r * 64 + 2, 124, 5); }
+  g.fillStyle = '#b4501f'; g.fillRect(0, 0, w, h);
+  for (let r = 0; r < 4; r++) for (let c = -1; c < 4; c++) { const x = c * 128 + (r % 2 ? 64 : 0); g.fillStyle = r % 2 ? '#e0743a' : '#d96d33'; g.fillRect(x + 2, r * 64 + 2, 124, 60); g.fillStyle = 'rgba(255,255,255,0.5)'; g.fillRect(x + 2, r * 64 + 2, 124, 5); }
 }, 5.7 / 1.2, 0.75 / 0.6);
 const tilePlane = new THREE.Mesh(new THREE.PlaneGeometry(5.7, 0.75), new THREE.MeshStandardMaterial({ map: subway, roughness: 0.25 }));
 tilePlane.position.set(0.1, 1.31, Z0 + 0.105); tilePlane.receiveShadow = true; scene.add(tilePlane);
@@ -140,7 +145,7 @@ function setGlow(id, on) {
 
 /* ---------- 카운터 (뒷벽) ---------- */
 const CZ = -3.45;
-rbox(5.6, 0.85, 0.9, 0xe9e7e2, 0.1, 0.425, CZ, scene, 0.015);
+rbox(5.6, 0.85, 0.9, 0xc9cbcd, 0.1, 0.425, CZ, scene, 0.015);
 rbox(5.7, 0.08, 1.0, 0x3a3d42, 0.1, 0.89, CZ, scene, 0.03, { roughness: 0.35 });   // 짙은 차콜 상판
 for (let i = 0; i <= 5; i++) rbox(0.012, 0.76, 0.02, 0x8d8a83, -2.5 + i * 0.94, 0.45, CZ + 0.46, scene, 0.004);
 for (let i = 3; i < 5; i++) rbox(0.22, 0.02, 0.025, 0x2e3338, -2.03 + i * 0.94, 0.78, CZ + 0.47, scene, 0.008, STEEL);
@@ -232,10 +237,10 @@ drawKiosk();
 
 /* ---------- 라운지 한쪽 (소파 + 작은 테이블 + 화분 + 액자) ---------- */
 const sofa = new THREE.Group();
-rbox(0.95, 0.34, 2.5, 0x9c968c, 0, 0.3, 0, sofa, 0.06);
-rbox(0.26, 0.6, 2.5, 0x8f897f, 0.4, 0.72, 0, sofa, 0.06);
-[-0.9, 0, 0.9].forEach(z => rbox(0.7, 0.16, 0.78, 0xb2ada3, -0.06, 0.55, z, sofa, 0.06));
-[-1.22, 1.22].forEach(z => rbox(0.95, 0.5, 0.18, 0x8f897f, 0, 0.5, z, sofa, 0.05));
+rbox(0.95, 0.34, 2.5, 0xd9742c, 0, 0.3, 0, sofa, 0.06);
+rbox(0.26, 0.6, 2.5, 0xc9651f, 0.4, 0.72, 0, sofa, 0.06);
+[-0.9, 0, 0.9].forEach(z => rbox(0.7, 0.16, 0.78, 0xe8893a, -0.06, 0.55, z, sofa, 0.06));
+[-1.22, 1.22].forEach(z => rbox(0.95, 0.5, 0.18, 0xc9651f, 0, 0.5, z, sofa, 0.05));
 [[-0.4, -1.1], [-0.4, 1.1], [0.4, -1.1], [0.4, 1.1]].forEach(([x, z]) => cyl(0.03, 0.025, 0.1, 0x3b3631, x, 0.05, z, sofa));
 sofa.position.set(9.35, 0, 1.5);
 scene.add(sofa);
@@ -265,7 +270,7 @@ function posterTex(top, mid, bot, bg, fg) {
 // 카운터 위 상부장 (화이트 도어, 하부 간접조명)
 for (let i = 0; i < 6; i++) {
   const x = -2.55 + i * 0.93;
-  rbox(0.9, 0.85, 0.36, 0xeceae6, x, 2.32, Z0 + 0.3, scene, 0.012);
+  rbox(0.9, 0.85, 0.36, 0xd3d5d7, x, 2.32, Z0 + 0.3, scene, 0.012);
   rbox(0.2, 0.02, 0.025, 0x2e3338, x + (i % 2 ? -0.3 : 0.3), 1.95, Z0 + 0.49, scene, 0.008, STEEL);
 }
 rbox(5.6, 0.02, 0.34, 0xfff3d6, 0.1, 1.88, Z0 + 0.3, scene, 0.005, { emissive: 0xffe2a8, emissiveIntensity: 1.2 });   // 상부장 아래 조명
@@ -560,8 +565,8 @@ const SNACK_NAMES = ['초코파이 (오리온)', '포카칩 (오리온)', '오�
 const SNACK_SHORT = ['초코파이', '포카칩', '오징어땅콩', '새우깡', '빼빼로', '홈런볼'];
 const SNACK_DEFAULT = [16, 14, 6, 18, 10, 15];     // 개수 (서랍 속 과자 하나가 1개)
 const SNACK_LOW = 5, SNACK_ORDER = 16;
-const SNACK_FRONT = [0xeceae6, 0xd8d4cc, 0xeceae6, 0xd8d4cc, 0xeceae6, 0xd8d4cc];
-const SNACK_FRONT_CSS = ['#eceae6', '#d8d4cc', '#eceae6', '#d8d4cc', '#eceae6', '#d8d4cc'];
+const SNACK_FRONT = [0xd2d4d6, 0xc2c5c8, 0xd2d4d6, 0xc2c5c8, 0xd2d4d6, 0xc2c5c8];
+const SNACK_FRONT_CSS = ['#d2d4d6', '#c2c5c8', '#d2d4d6', '#c2c5c8', '#d2d4d6', '#c2c5c8'];
 const SNACK_PULL = 0.7;
 let snackIdx = -1;                                  // 지금 열려 있는 서랍 번호 (-1이면 모두 닫힘)
 // 따로 서 있는 서랍장 대신, 카운터 아래 하부장 세 칸을 각각 서랍 두 개로 바꿨다
@@ -1025,7 +1030,8 @@ function applyEnv() {
   hemi.intensity = (0.55 + 0.75 * b) * k;
   sun.intensity = (0.5 + 1.4 * b) * k;
   sun.color.set(rgbCss(mix([188, 200, 255], [255, 244, 221], b)));
-  scene.background.set(rgbCss(mix([58, 59, 74], [228, 217, 196], b)));
+  scene.background.set(rgbCss(mix([22, 24, 32], [78, 80, 88], b)));
+  ceilLights.forEach(l => { l.intensity = 2.6 + 2.4 * (1 - b); });
 }
 function refreshWorldTime() { drawSky(performance.now() / 1000); applyEnv(); }
 function setSimTime(hh, mm) {
@@ -1048,8 +1054,8 @@ function ring(y, h, color, ox, oz, r) {
     if (zz1 > zz0) rbox(HX1 - HX0, h, zz1 - zz0, color, (HX0 + HX1) / 2, y, (zz0 + zz1) / 2, sink, r);
   });
 }
-rbox(0.9, 0.58, 2.1, 0xe9e7e2, 0, 0.29, 0, sink, 0.015);                                 // 아래 수납장
-ring(0.715, 0.27, 0xe9e7e2, 0.45, 1.05, 0.01);
+rbox(0.9, 0.58, 2.1, 0xc9cbcd, 0, 0.29, 0, sink, 0.015);                                 // 아래 수납장
+ring(0.715, 0.27, 0xc9cbcd, 0.45, 1.05, 0.01);
 ring(0.89, 0.08, 0x3a3d42, 0.5, 1.1, 0.02);                                              // 상판
 HOLES.forEach(([z0, z1, fl]) => {
   const cx = (HX0 + HX1) / 2, cz = (z0 + z1) / 2, bh = TOP - fl;
@@ -1271,6 +1277,7 @@ function tickWorld(dt) {
     d.position.z += (goal - d.position.z) * (1 - Math.exp(-dt * 6));
     if (Math.abs(goal - d.position.z) < 0.004) d.position.z = goal;      // 끝까지 딱 닫히거나 열리도록
   });
+  if (fpsShell.visible) fanBlades.rotation.y += dt * 2.4;
   acFlap.rotation.z += ((ac.on ? -0.6 : 0) - acFlap.rotation.z) * (1 - Math.exp(-dt * 6));
   const speed = { 약: 0.4, 중: 0.7, 강: 1.1 }[ac.fan] || 0.7;
   acWind.forEach(m => {
@@ -2730,7 +2737,7 @@ const fps = { on: false, yaw: 0, pitch: 0, tYaw: 0, tPitch: 0, vx: 0, vz: 0, pos
 const FPS_R = 0.28;
 // 1인칭일 때만 나타나는 나머지 벽과 천장 (열려 있는 쪽이 허공으로 보이지 않게)
 const fpsShell = new THREE.Group();
-[[0.2, 4.2, D, 0xe7e3da, X1 + 0.1, 2.1, RCZ], [W, 4.2, 0.2, 0xefebe3, RCX, 2.1, Z1 + 0.1], [W + 0.4, 0.2, D + 0.4, 0xf4f2ee, RCX, 4.3, RCZ]].forEach(([w, h, d, c, x, y, z]) => {
+[[0.2, 4.2, D, 0xcdcac2, X1 + 0.1, 2.1, RCZ], [W, 4.2, 0.2, 0xdad7d0, RCX, 2.1, Z1 + 0.1], [W + 0.4, 0.2, D + 0.4, 0xf4f2ee, RCX, 4.3, RCZ]].forEach(([w, h, d, c, x, y, z]) => {
   const m = rbox(w, h, d, c, x, y, z, fpsShell, 0.01); m.castShadow = false; m.receiveShadow = false;
   if (y > 4) m.material = new THREE.MeshBasicMaterial({ color: 0xece9e3 });                 // 천장은 위에서 빛이 안 들어오니 밝은 색으로 고정
 });
@@ -2741,6 +2748,16 @@ const panelMat = new THREE.MeshBasicMaterial({ color: 0xfffaf0 });
 }));
 fpsShell.visible = false;
 scene.add(fpsShell);
+// 천장 선풍기 (1인칭에서 천장과 함께 보이고, 천천히 돈다)
+const ceilFan = new THREE.Group();
+cyl(0.025, 0.025, 0.3, 0xdcdcda, 0, 0.15, 0, ceilFan);
+cyl(0.14, 0.12, 0.12, 0xe9e7e2, 0, 0, 0, ceilFan, { roughness: 0.4 });
+const fanBlades = new THREE.Group(); ceilFan.add(fanBlades);
+for (let k = 0; k < 3; k++) { const b2 = rbox(0.75, 0.012, 0.15, 0x3a2a22, 0.5, -0.05, 0, fanBlades, 0.004); const holder = new THREE.Group(); holder.rotation.y = k * 2.094; holder.add(b2); fanBlades.add(holder); b2.position.set(0.55, -0.05, 0); }
+sph(0.1, 0xfff2cf, 0, -0.1, 0, ceilFan, [1, 0.7, 1], { emissive: 0xffe2a8, emissiveIntensity: 1.1 });
+ceilFan.position.set(2.25, 3.85, 1); ceilFan.children.forEach(c => c.traverse(o => { o.castShadow = false; }));
+fpsShell.add(ceilFan);
+
 const FPS_BLOCKS = [[-2.85, 3.05, -4.0, -2.8], [3.0, 4.95, -3.95, -3.1], [-5.0, -3.95, -3.1, -0.8],
   [-4.9, -3.45, -0.75, 0.95], [0.45, 1.95, 0.6, 1.6], [2.65, 4.15, 0.6, 1.6], [3.9, 4.9, 2.6, 3.6],
   [6.4, 7.6, -3.95, -2.95], [8.85, 9.95, -0.2, 3.3], [8.9, 9.7, -1.6, -0.8], [-4.8, -3.0, -3.95, -3.35], [3.2, 5.5, -3.95, -3.4], [7.5, 9.0, -3.95, -3.6]];   // 가구가 차지하는 자리 [x0, x1, z0, z1]
